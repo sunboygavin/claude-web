@@ -361,7 +361,7 @@ def chat():
                     tool_uses = []
                     has_tool_use = False
 
-                        for event in response:
+                    for event in response:
                         if event.type == "content_block_start":
                             if hasattr(event.content_block, 'type'):
                                 if event.content_block.type == "tool_use":
