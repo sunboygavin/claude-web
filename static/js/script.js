@@ -278,7 +278,14 @@ function addSystemMessage(content) {
 
     messageDiv.appendChild(contentDiv);
     chatContainer.appendChild(messageDiv);
-    chatContainer.scrollTop = chatContainer.scrollHeight;
+    scrollToBottom();
+}
+
+// 滚动到底部
+function scrollToBottom() {
+    setTimeout(() => {
+        scrollToBottom();
+    }, 100);
 }
 
 // 自动调整输入框高度
@@ -312,7 +319,7 @@ function addMessage(role, content) {
     messageDiv.appendChild(contentDiv);
     chatContainer.appendChild(messageDiv);
 
-    chatContainer.scrollTop = chatContainer.scrollHeight;
+    scrollToBottom();
 
     return contentDiv;
 }
@@ -328,7 +335,7 @@ function showTypingIndicator() {
 
     messageDiv.appendChild(indicator);
     chatContainer.appendChild(messageDiv);
-    chatContainer.scrollTop = chatContainer.scrollHeight;
+    scrollToBottom();
 }
 
 function removeTypingIndicator() {
@@ -420,7 +427,7 @@ async function sendMessage() {
                             }
                             fullResponse += data.content;
                             currentTextDiv.textContent = fullResponse;
-                            chatContainer.scrollTop = chatContainer.scrollHeight;
+                            scrollToBottom();
 
                         } else if (data.type === 'tool_use') {
                             // 工具调用
@@ -431,7 +438,7 @@ async function sendMessage() {
                                 <pre class="tool-input">${JSON.stringify(data.input, null, 2)}</pre>
                             `;
                             messageDiv.appendChild(toolDiv);
-                            chatContainer.scrollTop = chatContainer.scrollHeight;
+                            scrollToBottom();
 
                         } else if (data.type === 'tool_result') {
                             // 工具结果
@@ -450,7 +457,7 @@ async function sendMessage() {
                                 <pre class="tool-result-content">${resultContent}</pre>
                             `;
                             messageDiv.appendChild(resultDiv);
-                            chatContainer.scrollTop = chatContainer.scrollHeight;
+                            scrollToBottom();
 
                             // 重置文本容器，为后续文本做准备
                             currentTextDiv = null;
@@ -513,7 +520,7 @@ async function handleCommand(command) {
 
             messageDiv.appendChild(contentDiv);
             chatContainer.appendChild(messageDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+            scrollToBottom();
 
             // 如果是清除命令，清空历史
             if (data.clear) {
@@ -569,7 +576,7 @@ async function loadHistoryFromDB() {
                 });
             });
 
-            chatContainer.scrollTop = chatContainer.scrollHeight;
+            scrollToBottom();
         }
     } catch (error) {
         console.error('加载历史记录失败:', error);
