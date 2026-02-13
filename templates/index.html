@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Claude 网页版</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 </head>
 <body>
     <div class="main-layout">
@@ -126,6 +130,53 @@
                         </svg>
                     </button>
                 </div>
+            </div>
+        </div>
+
+        <!-- 右侧沙盒面板 -->
+        <div class="sandbox-panel" id="sandboxPanel">
+            <div class="sandbox-header">
+                <h3>代码沙盒</h3>
+                <button id="toggleSandbox" class="toggle-btn">▶</button>
+            </div>
+            <div class="sandbox-tabs">
+                <button class="sandbox-tab active" data-tab="terminal">终端</button>
+                <button class="sandbox-tab" data-tab="preview">预览</button>
+                <button class="sandbox-tab" data-tab="html">HTML</button>
+                <button class="sandbox-tab" data-tab="css">CSS</button>
+                <button class="sandbox-tab" data-tab="js">JavaScript</button>
+            </div>
+            <div class="sandbox-content">
+                <div class="sandbox-tab-content active" id="terminalTab">
+                    <div class="terminal-container">
+                        <div class="terminal-header">
+                            <div class="terminal-connection">
+                                <input type="text" id="sshHost" placeholder="主机地址" value="localhost">
+                                <input type="text" id="sshPort" placeholder="端口" value="22">
+                                <input type="text" id="sshUser" placeholder="用户名" value="root">
+                                <input type="password" id="sshPassword" placeholder="密码（可选）">
+                                <button id="connectBtn" class="terminal-btn">连接</button>
+                            </div>
+                        </div>
+                        <div id="xterm-container" class="xterm-container"></div>
+                    </div>
+                </div>
+                <div class="sandbox-tab-content" id="previewTab">
+                    <iframe id="sandboxPreview" sandbox="allow-scripts allow-same-origin"></iframe>
+                </div>
+                <div class="sandbox-tab-content" id="htmlTab">
+                    <textarea id="htmlEditor" placeholder="输入 HTML 代码..."></textarea>
+                </div>
+                <div class="sandbox-tab-content" id="cssTab">
+                    <textarea id="cssEditor" placeholder="输入 CSS 代码..."></textarea>
+                </div>
+                <div class="sandbox-tab-content" id="jsTab">
+                    <textarea id="jsEditor" placeholder="输入 JavaScript 代码..."></textarea>
+                </div>
+            </div>
+            <div class="sandbox-actions">
+                <button id="runSandbox" class="sandbox-btn run">▶ 运行</button>
+                <button id="clearSandbox" class="sandbox-btn clear">清空</button>
             </div>
         </div>
     </div>

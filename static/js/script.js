@@ -19,9 +19,14 @@ document.addEventListener('DOMContentLoaded', () => {
     loadCurrentModel();
     loadHistoryFromDB();
 
-    // 侧边栏切换
+    // 侧边栏切换（默认收起）
+    sidebar.classList.add('collapsed');
+    document.getElementById('toggleSidebar').textContent = '▶';
+
     document.getElementById('toggleSidebar').addEventListener('click', () => {
         sidebar.classList.toggle('collapsed');
+        const btn = document.getElementById('toggleSidebar');
+        btn.textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
     });
 
     // 关闭编辑器
@@ -51,6 +56,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 模型选择
     document.getElementById('modelSelector').addEventListener('change', changeModel);
+
+    // 沙盒面板功能
+    initSandbox();
 });
 
 // 加载文件树
@@ -1397,4 +1405,280 @@ async function continueConversationWithAnswers(answerText, answers) {
     }
 }
 
+// 沙盒功能
+let terminalConnected = false;
+let terminalSocket = null;
+let term = null;
+let fitAddon = null;
+
+function initSandbox() {
+    const sandboxPanel = document.getElementById('sandboxPanel');
+    const toggleSandbox = document.getElementById('toggleSandbox');
+    const sandboxTabs = document.querySelectorAll('.sandbox-tab');
+    const runBtn = document.getElementById('runSandbox');
+    const clearBtn = document.getElementById('clearSandbox');
+    const htmlEditor = document.getElementById('htmlEditor');
+    const cssEditor = document.getElementById('cssEditor');
+    const jsEditor = document.getElementById('jsEditor');
+    const preview = document.getElementById('sandboxPreview');
+
+    // 切换沙盒面板
+    toggleSandbox.addEventListener('click', () => {
+        sandboxPanel.classList.toggle('collapsed');
+        toggleSandbox.textContent = sandboxPanel.classList.contains('collapsed') ? '◀' : '▶';
+    });
+
+    // 切换标签页
+    sandboxTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabName = tab.dataset.tab;
+
+            // 更新标签状态
+            sandboxTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+
+            // 更新内容显示
+            document.querySelectorAll('.sandbox-tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            document.getElementById(tabName + 'Tab').classList.add('active');
+        });
+    });
+
+    // 运行代码
+    runBtn.addEventListener('click', () => {
+        const html = htmlEditor.value;
+        const css = cssEditor.value;
+        const js = jsEditor.value;
+
+        const fullHTML = `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        ${css}
+    </style>
+</head>
+<body>
+    ${html}
+    <script>
+        try {
+            ${js}
+        } catch (error) {
+            document.body.innerHTML += '<div style="color: red; padding: 10px; background: #ffebee; border-radius: 4px; margin-top: 10px;"><strong>错误:</strong> ' + error.message + '</div>';
+        }
+    </script>
+</body>
+</html>
+        `;
+
+        const blob = new Blob([fullHTML], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        preview.src = url;
+
+        // 切换到预览标签
+        document.querySelector('.sandbox-tab[data-tab="preview"]').click();
+    });
+
+    // 清空代码
+    clearBtn.addEventListener('click', () => {
+        if (confirm('确定要清空所有代码吗？')) {
+            htmlEditor.value = '';
+            cssEditor.value = '';
+            jsEditor.value = '';
+            preview.src = 'about:blank';
+        }
+    });
+
+    // 支持 Tab 键缩进
+    [htmlEditor, cssEditor, jsEditor].forEach(editor => {
+        editor.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const start = editor.selectionStart;
+                const end = editor.selectionEnd;
+                editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end);
+                editor.selectionStart = editor.selectionEnd = start + 2;
+            }
+        });
+    });
+
+    // 终端功能
+    initTerminal();
+}
+
+function initTerminal() {
+    const connectBtn = document.getElementById('connectBtn');
+    const xtermContainer = document.getElementById('xterm-container');
+    const sshHost = document.getElementById('sshHost');
+    const sshPort = document.getElementById('sshPort');
+    const sshUser = document.getElementById('sshUser');
+    const sshPassword = document.getElementById('sshPassword');
+
+    console.log('Initializing terminal...');
+    console.log('Terminal object:', typeof Terminal);
+    console.log('FitAddon object:', typeof FitAddon);
+    console.log('io object:', typeof io);
+
+    // 检查依赖是否加载
+    if (typeof Terminal === 'undefined') {
+        console.error('xterm.js not loaded!');
+        return;
+    }
+    if (typeof FitAddon === 'undefined') {
+        console.error('xterm-addon-fit not loaded!');
+        return;
+    }
+    if (typeof io === 'undefined') {
+        console.error('socket.io not loaded!');
+        return;
+    }
+
+    // 初始化 xterm.js
+    term = new Terminal({
+        cursorBlink: true,
+        fontSize: 14,
+        fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+        theme: {
+            background: '#000000',
+            foreground: '#ffffff',
+            cursor: '#ffffff',
+            selection: '#ffffff40',
+            black: '#000000',
+            red: '#e06c75',
+            green: '#98c379',
+            yellow: '#d19a66',
+            blue: '#61afef',
+            magenta: '#c678dd',
+            cyan: '#56b6c2',
+            white: '#abb2bf',
+            brightBlack: '#5c6370',
+            brightRed: '#e06c75',
+            brightGreen: '#98c379',
+            brightYellow: '#d19a66',
+            brightBlue: '#61afef',
+            brightMagenta: '#c678dd',
+            brightCyan: '#56b6c2',
+            brightWhite: '#ffffff'
+        }
+    });
+
+    fitAddon = new FitAddon.FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(xtermContainer);
+    fitAddon.fit();
+
+    // 窗口大小调整
+    window.addEventListener('resize', () => {
+        if (fitAddon && term) {
+            fitAddon.fit();
+            if (terminalSocket && terminalConnected) {
+                terminalSocket.emit('ssh_resize', {
+                    cols: term.cols,
+                    rows: term.rows
+                });
+            }
+        }
+    });
+
+    // 显示欢迎信息
+    term.writeln('\x1b[1;32m欢迎使用 SSH 终端\x1b[0m');
+    term.writeln('请填写连接信息后点击"连接"按钮\r\n');
+
+    // 连接按钮
+    connectBtn.addEventListener('click', () => {
+        if (terminalConnected) {
+            // 断开连接
+            if (terminalSocket) {
+                terminalSocket.disconnect();
+            }
+            terminalConnected = false;
+            connectBtn.textContent = '连接';
+            connectBtn.style.background = '#667eea';
+            term.writeln('\r\n\x1b[1;33m已断开连接\x1b[0m\r\n');
+            return;
+        }
+
+        const host = sshHost.value.trim();
+        const port = sshPort.value.trim();
+        const user = sshUser.value.trim();
+        const password = sshPassword.value.trim();
+
+        if (!host || !user) {
+            term.writeln('\x1b[1;31m错误: 请填写主机地址和用户名\x1b[0m\r\n');
+            return;
+        }
+
+        connectBtn.disabled = true;
+        connectBtn.textContent = '连接中...';
+        term.writeln(`\x1b[1;36m正在连接到 ${user}@${host}:${port}...\x1b[0m\r\n`);
+
+        // 创建 WebSocket 连接
+        terminalSocket = io('/terminal');
+
+        terminalSocket.on('connect', () => {
+            // 发送连接请求
+            terminalSocket.emit('ssh_connect', {
+                host: host,
+                port: port,
+                user: user,
+                password: password
+            });
+        });
+
+        terminalSocket.on('ssh_connected', (data) => {
+            terminalConnected = true;
+            connectBtn.disabled = false;
+            connectBtn.textContent = '断开';
+            connectBtn.style.background = '#f44336';
+            term.writeln(`\x1b[1;32m${data.message}\x1b[0m\r\n`);
+
+            // 调整终端大小
+            fitAddon.fit();
+            terminalSocket.emit('ssh_resize', {
+                cols: term.cols,
+                rows: term.rows
+            });
+        });
+
+        terminalSocket.on('ssh_output', (data) => {
+            term.write(data.data);
+        });
+
+        terminalSocket.on('ssh_error', (data) => {
+            term.writeln(`\r\n\x1b[1;31m错误: ${data.error}\x1b[0m\r\n`);
+            connectBtn.disabled = false;
+            connectBtn.textContent = '连接';
+            terminalConnected = false;
+        });
+
+        terminalSocket.on('disconnect', () => {
+            if (terminalConnected) {
+                term.writeln('\r\n\x1b[1;33m连接已断开\x1b[0m\r\n');
+                terminalConnected = false;
+                connectBtn.textContent = '连接';
+                connectBtn.style.background = '#667eea';
+            }
+        });
+
+        // 处理用户输入
+        term.onData((data) => {
+            if (terminalConnected && terminalSocket) {
+                terminalSocket.emit('ssh_input', { data: data });
+            }
+        });
+    });
+}
+
+// 删除旧的终端函数
+function addTerminalLine(text, type = '') {
+    // 已废弃，使用 xterm.js
+}
 
