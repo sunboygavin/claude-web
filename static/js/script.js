@@ -1594,6 +1594,9 @@ function initTerminal() {
 
     // 连接按钮
     connectBtn.addEventListener('click', () => {
+        console.log('Connect button clicked');
+        console.log('terminalConnected:', terminalConnected);
+
         if (terminalConnected) {
             // 断开连接
             if (terminalSocket) {
@@ -1611,6 +1614,8 @@ function initTerminal() {
         const user = sshUser.value.trim();
         const password = sshPassword.value.trim();
 
+        console.log('Connection params:', { host, port, user });
+
         if (!host || !user) {
             term.writeln('\x1b[1;31m错误: 请填写主机地址和用户名\x1b[0m\r\n');
             return;
@@ -1620,10 +1625,12 @@ function initTerminal() {
         connectBtn.textContent = '连接中...';
         term.writeln(`\x1b[1;36m正在连接到 ${user}@${host}:${port}...\x1b[0m\r\n`);
 
+        console.log('Creating WebSocket connection...');
         // 创建 WebSocket 连接
         terminalSocket = io('/terminal');
 
         terminalSocket.on('connect', () => {
+            console.log('WebSocket connected');
             // 发送连接请求
             terminalSocket.emit('ssh_connect', {
                 host: host,
@@ -1634,6 +1641,7 @@ function initTerminal() {
         });
 
         terminalSocket.on('ssh_connected', (data) => {
+            console.log('SSH connected:', data);
             terminalConnected = true;
             connectBtn.disabled = false;
             connectBtn.textContent = '断开';
@@ -1653,6 +1661,7 @@ function initTerminal() {
         });
 
         terminalSocket.on('ssh_error', (data) => {
+            console.log('SSH error:', data);
             term.writeln(`\r\n\x1b[1;31m错误: ${data.error}\x1b[0m\r\n`);
             connectBtn.disabled = false;
             connectBtn.textContent = '连接';
@@ -1660,6 +1669,7 @@ function initTerminal() {
         });
 
         terminalSocket.on('disconnect', () => {
+            console.log('WebSocket disconnected');
             if (terminalConnected) {
                 term.writeln('\r\n\x1b[1;33m连接已断开\x1b[0m\r\n');
                 terminalConnected = false;
