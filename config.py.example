@@ -1,0 +1,24 @@
+# 配置文件示例
+# 复制此文件为 config.py 并修改相应配置
+
+# Anthropic API 配置
+ANTHROPIC_BASE_URL = "https://api.anthropic.com"
+ANTHROPIC_AUTH_TOKEN = "your-api-key-here"
+
+# Flask 配置
+SECRET_KEY = "your-secret-key-here"
+
+# 用户认证（生产环境应使用数据库）
+USERS = {
+    "admin": "password123"
+}
+
+# 默认模型
+DEFAULT_MODEL = "sonnet"
+
+# 模型配置
+MODELS = {
+    "sonnet": "claude-sonnet-4-5-20250929",
+    "opus": "claude-opus-4-6",
+    "haiku": "claude-haiku-3-5-20250219"
+}

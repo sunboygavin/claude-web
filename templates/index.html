@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude 网页版</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="main-layout">
+        <!-- 左侧文件浏览器 -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3>文件浏览器</h3>
+                <button id="toggleSidebar" class="toggle-btn">◀</button>
+            </div>
+            <div class="file-tree" id="fileTree">
+                <div class="loading">加载中...</div>
+            </div>
+        </div>
+
+        <!-- 主内容区 -->
+        <div class="main-content">
+            <!-- 代码编辑器（默认隐藏） -->
+            <div class="editor-container" id="editorContainer" style="display: none;">
+                <div class="editor-header">
+                    <span class="file-path" id="currentFilePath"></span>
+                    <div class="editor-actions">
+                        <button id="saveFileBtn" class="btn-save">保存</button>
+                        <button id="closeEditorBtn" class="btn-close">关闭</button>
+                    </div>
+                </div>
+                <textarea id="codeEditor" class="code-editor"></textarea>
+            </div>
+
+            <!-- 聊天界面 -->
+            <div class="chat-section" id="chatSection">
+                <!-- 搜索对话框 -->
+                <div class="search-modal" id="searchModal" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>搜索对话</h3>
+                            <button class="close-modal" onclick="closeSearchModal()">✕</button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="text" id="searchInput" placeholder="输入搜索关键词..." class="search-input">
+                            <button onclick="performSearch()" class="search-button">搜索</button>
+                            <div id="searchResults" class="search-results"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 历史记录对话框 -->
+                <div class="history-modal" id="historyModal" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>对话历史</h3>
+                            <button class="close-modal" onclick="closeHistoryModal()">✕</button>
+                        </div>
+                        <div class="modal-body">
+                            <div id="historyList" class="history-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="header">
+                    <h1>Claude 网页版</h1>
+                    <div class="header-actions">
+                        <select id="modelSelector" class="model-selector">
+                            <option value="sonnet">Sonnet 4.5</option>
+                            <option value="opus">Opus 4.6</option>
+                            <option value="haiku">Haiku 3.5</option>
+                        </select>
+                        <button id="searchBtn" class="action-btn" title="搜索对话">🔍</button>
+                        <button id="historyBtn" class="action-btn" title="加载历史">📜</button>
+                        <button id="clearHistoryBtn" class="action-btn" title="清除历史">🗑️</button>
+                        <button id="exportBtn" class="action-btn" title="导出对话">💾</button>
+                        <p class="model-info">Model: Claude Sonnet 4.5</p>
+                        <a href="/logout" class="logout-btn">退出</a>
+                    </div>
+                </div>
+
+                <div class="chat-container" id="chatContainer">
+                    <div class="welcome-message">
+                        <h2>👋 你好！我是 Claude</h2>
+                        <p>我可以帮助你解答问题、编写代码、分析文档等。请随时向我提问！</p>
+                        <div class="command-hint">
+                            <p>💡 提示：输入 <code>/help</code> 查看可用命令</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-container">
+                    <textarea
+                        id="messageInput"
+                        placeholder="输入你的消息..."
+                        rows="1"
+                    ></textarea>
+                    <button id="sendButton" onclick="sendMessage()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

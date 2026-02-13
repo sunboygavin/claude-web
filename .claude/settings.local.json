@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(source:*)",
+      "Bash(pip install:*)",
+      "Bash(chmod:*)",
+      "Bash(echo $ANTHROPIC_API_KEY)",
+      "Bash(timeout 5 python:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(pip3 install:*)",
+      "Bash(python test_features.py:*)",
+      "Bash(./stop.sh)",
+      "Bash(./start.sh)",
+      "Bash(python:*)",
+      "Bash(./verify_upgrade.sh:*)",
+      "Bash(./demo.sh:*)",
+      "Bash(/root/claude-web/PROJECT_FILES.md << 'EOF'\n# Claude Web 项目文件清单\n\n## 📁 核心文件\n\n### 后端\n- `app.py` - Flask 主应用（已升级）\n- `config.py` - 配置文件（已升级）\n- `tools.py` - 工具定义（已升级）\n- `requirements.txt` - Python 依赖（已升级）\n\n### 前端\n- `templates/index.html` - 主界面（已升级）\n- `templates/login.html` - 登录页面\n- `static/js/script.js` - 前端逻辑（已升级）\n- `static/css/style.css` - 样式表（已升级）\n\n### 脚本\n- `start.sh` - 启动脚本\n- `stop.sh` - 停止脚本\n- `demo.sh` - 演示脚本（新增）\n- `verify_upgrade.sh` - 验证脚本（新增）\n- `test_features.py` - 功能测试（新增）\n\n## 📚 文档文件\n\n### 主要文档\n- `README.md` - 项目说明（已更新）\n- `FEATURES.md` - 完整功能说明（新增）\n- `QUICK_REFERENCE.md` - 快速参考（新增）\n- `SUMMARY.md` - 升级总结（新增）\n- `UPGRADE_NOTES.md` - 升级说明（新增）\n- `PROJECT_FILES.md` - 本文件（新增）\n\n## 🔧 配置文件\n\n### Python 环境\n- `venv/` - 虚拟环境目录\n- `__pycache__/` - Python 缓存\n\n### IDE 配置\n- `.claude/` - Claude IDE 配置\n\n## 📊 文件统计\n\n### 代码文件\n- Python: 3 个（app.py, config.py, tools.py）\n- JavaScript: 1 个（script.js）\n- HTML: 2 个（index.html, login.html）\n- CSS: 1 个（style.css）\n\n### 文档文件\n- Markdown: 6 个\n- Shell: 4 个\n\n### 总计\n- 核心文件: 11 个\n- 文档文件: 10 个\n- 总文件数: 21 个\n\n## 🎯 关键改动\n\n### v2.0.0 升级\n1. **config.py**\n   - 添加 AVAILABLE_MODELS\n   - 添加 DEFAULT_MODEL\n\n2. **app.py**\n   - 添加 /api/model 接口\n   - 添加 /api/clear 接口\n   - 添加 /api/export 接口\n   - 添加 handle_command\\(\\) 函数\n   - 支持动态模型切换\n\n3. **tools.py**\n   - 添加 web_fetch 工具\n   - 添加 web_search 工具\n   - 导入 requests 和 BeautifulSoup\n\n4. **script.js**\n   - 添加 loadCurrentModel\\(\\)\n   - 添加 changeModel\\(\\)\n   - 添加 clearHistory\\(\\)\n   - 添加 exportConversation\\(\\)\n   - 添加 handleCommand\\(\\)\n   - 添加 formatMarkdown\\(\\)\n\n5. **index.html**\n   - 添加模型选择器\n   - 添加清除按钮\n   - 添加导出按钮\n   - 添加命令提示\n\n6. **style.css**\n   - 添加 .model-selector 样式\n   - 添加 .action-btn 样式\n   - 添加 .command-hint 样式\n   - 添加 .command-response 样式\n   - 添加 .message.system 样式\n\n7. **requirements.txt**\n   - 添加 requests==2.31.0\n   - 添加 beautifulsoup4==4.12.2\n\n## 📝 使用说明\n\n### 查看文档\n```bash\ncat README.md              # 项目说明\ncat FEATURES.md            # 完整功能\ncat QUICK_REFERENCE.md     # 快速参考\ncat SUMMARY.md             # 升级总结\n```\n\n### 运行脚本\n```bash\n./start.sh                 # 启动应用\n./stop.sh                  # 停止应用\n./demo.sh                  # 查看演示\n./verify_upgrade.sh        # 验证升级\npython test_features.py    # 功能测试\n```\n\n### 编辑文件\n```bash\nvim app.py                 # 编辑主应用\nvim config.py              # 编辑配置\nvim tools.py               # 编辑工具\nvim static/js/script.js    # 编辑前端\n```\n\n## 🔍 文件依赖关系\n\n```\napp.py\n├── config.py \\(配置\\)\n├── tools.py \\(工具\\)\n└── templates/\n    ├── index.html\n    │   ├── static/js/script.js\n    │   └── static/css/style.css\n    └── login.html\n\ntools.py\n├── requests \\(HTTP\\)\n└── beautifulsoup4 \\(HTML 解析\\)\n\nscript.js\n└── index.html \\(DOM 操作\\)\n```\n\n## ✅ 完整性检查\n\n所有核心文件已就位：\n- [x] app.py\n- [x] config.py\n- [x] tools.py\n- [x] requirements.txt\n- [x] templates/index.html\n- [x] templates/login.html\n- [x] static/js/script.js\n- [x] static/css/style.css\n- [x] start.sh\n- [x] stop.sh\n\n所有文档文件已创建：\n- [x] README.md\n- [x] FEATURES.md\n- [x] QUICK_REFERENCE.md\n- [x] SUMMARY.md\n- [x] UPGRADE_NOTES.md\n- [x] PROJECT_FILES.md\n\n所有测试脚本已创建：\n- [x] test_features.py\n- [x] verify_upgrade.sh\n- [x] demo.sh\n\n## 🎉 项目状态\n\n**版本**: 2.0.0\n**状态**: ✅ 生产就绪\n**功能**: 完整\n**文档**: 完善\n**测试**: 通过\n\n---\n\n*最后更新: 2026-02-11*\nEOF)",
+      "Bash(sqlite3:*)",
+      "Bash(/root/claude-web/demo_memory.sh)",
+      "Bash(cat:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(claude-code config:*)",
+      "Bash(git init:*)",
+      "Bash(git config:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}
