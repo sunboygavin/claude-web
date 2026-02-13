@@ -1055,39 +1055,56 @@ def terminal_execute():
 
 # n8n 代理路由
 @app.route('/n8n')
-@app.route('/n8n/<path:path>')
+@app.route('/n8n/')
+@app.route('/n8n/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
 def n8n_proxy(path=''):
     """代理 n8n 请求"""
     import requests
+    from urllib.parse import urljoin
 
-    n8n_url = f'http://localhost:5678/{path}'
+    # 构建目标URL
+    n8n_base = 'http://localhost:5678/'
+    if path:
+        n8n_url = urljoin(n8n_base, path)
+    else:
+        n8n_url = n8n_base
 
     # 转发查询参数
     if request.query_string:
         n8n_url += f'?{request.query_string.decode()}'
 
     try:
+        # 准备请求头，移除Host
+        headers = {key: value for key, value in request.headers if key.lower() not in ['host', 'connection']}
+
         # 转发请求
-        if request.method == 'GET':
-            resp = requests.get(n8n_url, headers=dict(request.headers), stream=True)
-        elif request.method == 'POST':
-            resp = requests.post(n8n_url, headers=dict(request.headers), data=request.get_data(), stream=True)
-        else:
-            resp = requests.request(
-                method=request.method,
-                url=n8n_url,
-                headers=dict(request.headers),
-                data=request.get_data(),
-                stream=True
-            )
+        resp = requests.request(
+            method=request.method,
+            url=n8n_url,
+            headers=headers,
+            data=request.get_data(),
+            cookies=request.cookies,
+            allow_redirects=False,
+            stream=True
+        )
+
+        # 准备响应头
+        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+        response_headers = [(name, value) for (name, value) in resp.raw.headers.items()
+                          if name.lower() not in excluded_headers]
+
+        # 移除X-Frame-Options以允许iframe嵌入
+        response_headers = [(name, value) for (name, value) in response_headers
+                          if name.lower() != 'x-frame-options']
 
         # 返回响应
         return Response(
             resp.iter_content(chunk_size=10*1024),
             status=resp.status_code,
-            headers=dict(resp.headers)
+            headers=response_headers
         )
     except Exception as e:
+        print(f"n8n proxy error: {e}")
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':

@@ -160,19 +160,17 @@
                 </div>
                 <div class="sandbox-tab-content" id="n8nTab">
                     <div style="display: flex; flex-direction: column; height: 100%; background: #1e1e1e; color: white;">
-                        <div style="padding: 20px; text-align: center;">
-                            <h3 style="margin-bottom: 15px; font-size: 16px;">n8n 工作流引擎</h3>
-                            <p style="margin-bottom: 20px; color: #999; font-size: 12px;">
-                                n8n 运行在 localhost:5678<br>
-                                用户名: admin<br>
-                                密码: changeme
+                        <div style="padding: 15px; text-align: center; border-bottom: 1px solid #333;">
+                            <h3 style="margin-bottom: 10px; font-size: 14px;">n8n 工作流引擎</h3>
+                            <p style="margin-bottom: 10px; color: #999; font-size: 11px;">
+                                用户名: admin | 密码: changeme
                             </p>
                             <button onclick="window.open('http://localhost:5678', '_blank')"
-                                    style="padding: 10px 30px; background: #667eea; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600;">
-                                在新窗口打开 n8n
+                                    style="padding: 6px 20px; background: #667eea; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 600;">
+                                在新窗口打开
                             </button>
                         </div>
-                        <iframe id="n8nFrame" src="http://localhost:5678" style="flex: 1; width: 100%; border: none; background: white;"></iframe>
+                        <iframe id="n8nFrame" src="/n8n/" style="flex: 1; width: 100%; border: none; background: white;"></iframe>
                     </div>
                 </div>
             </div>
