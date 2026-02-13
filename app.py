@@ -394,17 +394,8 @@ def chat():
                                         auto_approve=False
                                     )
 
-                                    # 获取执行结果
-                                    if exec_result['status'] == 'success':
-                                        result = exec_result['result']
-                                    else:
-                                        result = {'error': exec_result.get('error', '执行失败')}
-
-                                    # 发送工具结果
-                                    yield f"data: {json.dumps({'type': 'tool_result', 'name': tool_name, 'result': result})}\n\n"
-
                                     # 检查是否需要用户输入（ask_user_question）
-                                    if exec_result.get('status') == 'success' and result.get('requires_user_input'):
+                                    if exec_result.get('status') == 'success' and exec_result.get('result', {}).get('requires_user_input'):
                                         # 等待用户回答，暂停流式响应
                                         yield f"data: {json.dumps({'type': 'waiting_user_input'})}\n\n"
                                         # 保存当前响应
