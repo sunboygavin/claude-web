@@ -340,175 +340,131 @@ def chat():
                 # 获取所有工具（包括MCP工具）
                 all_tools = tool_router.get_all_tools()
 
-                # 使用工具调用
-                response = client.messages.create(
-                    model=model_id,
-                    max_tokens=4096,
-                    messages=messages,
-                    tools=all_tools,
-                    system=system_prompt.get_system_prompt(),
-                    stream=True
-                )
+                # Agentic loop - 持续执行直到Claude不再调用工具
+                max_iterations = 25  # 防止无限循环
+                iteration = 0
 
-                current_text = ""
-                tool_uses = []
+                while iteration < max_iterations:
+                    iteration += 1
 
-                for event in response:
-                    if event.type == "content_block_start":
-                        if hasattr(event.content_block, 'type'):
-                            if event.content_block.type == "tool_use":
-                                tool_uses.append({
-                                    "id": event.content_block.id,
-                                    "name": event.content_block.name,
-                                    "input": {}
-                                })
+                    # 调用Claude API
+                    response = client.messages.create(
+                        model=model_id,
+                        max_tokens=4096,
+                        messages=messages,
+                        tools=all_tools,
+                        system=system_prompt.get_system_prompt(),
+                        stream=True
+                    )
 
-                    elif event.type == "content_block_delta":
-                        if hasattr(event.delta, 'type'):
-                            if event.delta.type == "text_delta":
-                                text = event.delta.text
-                                current_text += text
-                                assistant_response += text
-                                yield f"data: {json.dumps({'type': 'text', 'content': text})}\n\n"
-                            elif event.delta.type == "input_json_delta":
-                                if tool_uses:
-                                    tool_uses[-1]["input_json"] = tool_uses[-1].get("input_json", "") + event.delta.partial_json
+                    current_text = ""
+                    tool_uses = []
+                    has_tool_use = False
 
-                    elif event.type == "content_block_stop":
-                        # 工具调用完成，执行工具
-                        if tool_uses:
-                            for tool_use in tool_uses:
-                                if "input_json" in tool_use:
-                                    tool_input = json.loads(tool_use["input_json"])
-                                    tool_name = tool_use["name"]
-
-                                    # 发送工具调用信息
-                                    yield f"data: {json.dumps({'type': 'tool_use', 'name': tool_name, 'input': tool_input})}\n\n"
-
-                                    # 使用tool_router执行工具
-                                    exec_result = tool_router.execute_tool(
-                                        tool_name=tool_name,
-                                        tool_input=tool_input,
-                                        username=username,
-                                        session_id=session_id,
-                                        auto_approve=False
-                                    )
-
-                                    # 检查是否需要用户输入（ask_user_question）
-                                    if exec_result.get('status') == 'success' and exec_result.get('result', {}).get('requires_user_input'):
-                                        # 等待用户回答，暂停流式响应
-                                        yield f"data: {json.dumps({'type': 'waiting_user_input'})}\n\n"
-                                        # 保存当前响应
-                                        if assistant_response:
-                                            database.save_message(username, 'assistant', assistant_response, current_model, session_id)
-                                        return
-
-                                    # 检查是否需要权限
-                                    if exec_result['status'] == 'pending_permission':
-                                        # 发送权限请求
-                                        yield f"data: {json.dumps({'type': 'permission_required', 'log_id': exec_result['log_id'], 'preview': exec_result['preview']})}\n\n"
-                                        # 发送完成信号
-                                        yield f"data: {json.dumps({'type': 'done'})}\n\n"
-                                        # 保存当前响应
-                                        if assistant_response:
-                                            database.save_message(username, 'assistant', assistant_response, current_model, session_id)
-                                        return
-
-                                    # 获取执行结果
-                                    if exec_result['status'] == 'success':
-                                        result = exec_result['result']
-                                    else:
-                                        result = {'error': exec_result.get('error', '执行失败')}
-
-                                    # 发送工具结果
-                                    yield f"data: {json.dumps({'type': 'tool_result', 'name': tool_name, 'result': result})}\n\n"
-
-                                    # 继续对话，将工具结果发送给 Claude
-                                    messages.append({
-                                        "role": "assistant",
-                                        "content": [
-                                            {"type": "text", "text": current_text} if current_text else None,
-                                            {
-                                                "type": "tool_use",
-                                                "id": tool_use["id"],
-                                                "name": tool_name,
-                                                "input": tool_input
-                                            }
-                                        ]
-                                    })
-                                    messages[-1]["content"] = [c for c in messages[-1]["content"] if c]
-
-                                    messages.append({
-                                        "role": "user",
-                                        "content": [
-                                            {
-                                                "type": "tool_result",
-                                                "tool_use_id": tool_use["id"],
-                                                "content": json.dumps(result)
-                                            }
-                                        ]
+                        for event in response:
+                        if event.type == "content_block_start":
+                            if hasattr(event.content_block, 'type'):
+                                if event.content_block.type == "tool_use":
+                                    has_tool_use = True
+                                    tool_uses.append({
+                                        "id": event.content_block.id,
+                                        "name": event.content_block.name,
+                                        "input": {}
                                     })
 
-                                    # 继续流式响应（支持多轮工具调用）
-                                    follow_up = client.messages.create(
-                                        model=model_id,
-                                        max_tokens=4096,
-                                        messages=messages,
-                                        tools=all_tools,
-                                        system=system_prompt.get_system_prompt(),
-                                        stream=True
-                                    )
+                        elif event.type == "content_block_delta":
+                            if hasattr(event.delta, 'type'):
+                                if event.delta.type == "text_delta":
+                                    text = event.delta.text
+                                    current_text += text
+                                    assistant_response += text
+                                    yield f"data: {json.dumps({'type': 'text', 'content': text})}\n\n"
+                                elif event.delta.type == "input_json_delta":
+                                    if tool_uses:
+                                        tool_uses[-1]["input_json"] = tool_uses[-1].get("input_json", "") + event.delta.partial_json
 
-                                    follow_text = ""
-                                    follow_tool_uses = []
+                    # 如果没有工具调用，说明对话结束
+                    if not has_tool_use:
+                        break
 
-                                    for follow_event in follow_up:
-                                        if follow_event.type == "content_block_start":
-                                            if hasattr(follow_event.content_block, 'type'):
-                                                if follow_event.content_block.type == "tool_use":
-                                                    follow_tool_uses.append({
-                                                        "id": follow_event.content_block.id,
-                                                        "name": follow_event.content_block.name,
-                                                        "input": {}
-                                                    })
+                    # 处理所有工具调用
+                    tool_results = []
+                    for tool_use in tool_uses:
+                        if "input_json" not in tool_use:
+                            continue
 
-                                        elif follow_event.type == "content_block_delta":
-                                            if hasattr(follow_event.delta, 'type'):
-                                                if follow_event.delta.type == "text_delta":
-                                                    follow_text += follow_event.delta.text
-                                                    assistant_response += follow_event.delta.text
-                                                    yield f"data: {json.dumps({'type': 'text', 'content': follow_event.delta.text})}\n\n"
-                                                elif follow_event.delta.type == "input_json_delta":
-                                                    if follow_tool_uses:
-                                                        follow_tool_uses[-1]["input_json"] = follow_tool_uses[-1].get("input_json", "") + follow_event.delta.partial_json
+                        tool_input = json.loads(tool_use["input_json"])
+                        tool_name = tool_use["name"]
 
-                                        elif follow_event.type == "content_block_stop":
-                                            # 处理后续工具调用
-                                            if follow_tool_uses:
-                                                for follow_tool in follow_tool_uses:
-                                                    if "input_json" in follow_tool:
-                                                        follow_input = json.loads(follow_tool["input_json"])
-                                                        follow_name = follow_tool["name"]
+                        # 发送工具调用信息
+                        yield f"data: {json.dumps({'type': 'tool_use', 'name': tool_name, 'input': tool_input})}\n\n"
 
-                                                        yield f"data: {json.dumps({'type': 'tool_use', 'name': follow_name, 'input': follow_input})}\n\n"
+                        # 执行工具
+                        exec_result = tool_router.execute_tool(
+                            tool_name=tool_name,
+                            tool_input=tool_input,
+                            username=username,
+                            session_id=session_id,
+                            auto_approve=False
+                        )
 
-                                                        # 执行工具
-                                                        follow_result = tool_router.execute_tool(
-                                                            tool_name=follow_name,
-                                                            tool_input=follow_input,
-                                                            username=username,
-                                                            session_id=session_id,
-                                                            auto_approve=False
-                                                        )
+                        # 检查是否需要用户输入
+                        if exec_result.get('status') == 'success' and exec_result.get('result', {}).get('requires_user_input'):
+                            yield f"data: {json.dumps({'type': 'waiting_user_input'})}\n\n"
+                            if assistant_response:
+                                database.save_message(username, 'assistant', assistant_response, current_model, session_id)
+                            return
 
-                                                        if follow_result['status'] == 'success':
-                                                            result_data = follow_result['result']
-                                                        else:
-                                                            result_data = {'error': follow_result.get('error', '执行失败')}
+                        # 检查是否需要权限
+                        if exec_result['status'] == 'pending_permission':
+                            yield f"data: {json.dumps({'type': 'permission_required', 'log_id': exec_result['log_id'], 'preview': exec_result['preview']})}\n\n"
+                            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                            if assistant_response:
+                                database.save_message(username, 'assistant', assistant_response, current_model, session_id)
+                            return
 
-                                                        yield f"data: {json.dumps({'type': 'tool_result', 'name': follow_name, 'result': result_data})}\n\n"
+                        # 获取执行结果
+                        if exec_result['status'] == 'success':
+                            result = exec_result['result']
+                        else:
+                            result = {'error': exec_result.get('error', '执行失败')}
 
-                                                follow_tool_uses = []
+                        # 发送工具结果
+                        yield f"data: {json.dumps({'type': 'tool_result', 'name': tool_name, 'result': result})}\n\n"
+
+                        # 保存工具结果用于下一轮
+                        tool_results.append({
+                            "tool_use": tool_use,
+                            "result": result
+                        })
+
+                    # 构建下一轮消息
+                    # 添加assistant的响应（包含文本和工具调用）
+                    assistant_content = []
+                    if current_text:
+                        assistant_content.append({"type": "text", "text": current_text})
+                    for tr in tool_results:
+                        assistant_content.append({
+                            "type": "tool_use",
+                            "id": tr["tool_use"]["id"],
+                            "name": tr["tool_use"]["name"],
+                            "input": json.loads(tr["tool_use"]["input_json"])
+                        })
+                    messages.append({"role": "assistant", "content": assistant_content})
+
+                    # 添加工具结果
+                    tool_result_content = []
+                    for tr in tool_results:
+                        tool_result_content.append({
+                            "type": "tool_result",
+                            "tool_use_id": tr["tool_use"]["id"],
+                            "content": json.dumps(tr["result"])
+                        })
+                    messages.append({"role": "user", "content": tool_result_content})
+
+                    # 重置状态，继续下一轮
+                    current_text = ""
+                    tool_uses = []
 
                 # 保存 assistant 响应到数据库
                 if assistant_response:
