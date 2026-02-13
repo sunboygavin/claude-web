@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, jsonify, Response, session, redirect, url_for
+from flask_socketio import SocketIO, emit
 import anthropic
 import os
 from datetime import datetime
@@ -20,9 +21,11 @@ from operation_logger import (
     get_operation_stats
 )
 import mcp_database
+import threading
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # 使用配置文件中的设置
 ANTHROPIC_BASE_URL = config.ANTHROPIC_BASE_URL
@@ -795,6 +798,298 @@ def operations_stream():
 
     return Response(generate(), mimetype='text/event-stream')
 
+# 终端会话存储
+terminal_sessions = {}
+
+# WebSocket 终端处理
+@socketio.on('connect', namespace='/terminal')
+def terminal_connect_ws():
+    """WebSocket 连接"""
+    print(f'Terminal WebSocket connected: {request.sid}')
+
+@socketio.on('disconnect', namespace='/terminal')
+def terminal_disconnect_ws():
+    """WebSocket 断开"""
+    print(f'Terminal WebSocket disconnected: {request.sid}')
+    # 清理会话
+    if request.sid in terminal_sessions:
+        session_info = terminal_sessions[request.sid]
+        if 'ssh' in session_info:
+            try:
+                session_info['ssh'].close()
+            except:
+                pass
+        if 'channel' in session_info:
+            try:
+                session_info['channel'].close()
+            except:
+                pass
+        del terminal_sessions[request.sid]
+
+@socketio.on('ssh_connect', namespace='/terminal')
+def handle_ssh_connect(data):
+    """处理 SSH 连接请求"""
+    try:
+        import paramiko
+
+        host = data.get('host', 'localhost')
+        port = int(data.get('port', 22))
+        user = data.get('user')
+        password = data.get('password', '')
+
+        if not user:
+            emit('ssh_error', {'error': '用户名不能为空'})
+            return
+
+        # 创建 SSH 客户端
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        # 连接参数
+        connect_kwargs = {
+            'hostname': host,
+            'port': port,
+            'username': user,
+            'timeout': 10,
+            'look_for_keys': True,
+            'allow_agent': True
+        }
+
+        if password:
+            connect_kwargs['password'] = password
+
+        # 连接
+        ssh.connect(**connect_kwargs)
+
+        # 创建交互式 shell
+        channel = ssh.invoke_shell(term='xterm', width=120, height=30)
+        channel.settimeout(0.1)
+
+        # 保存当前 sid
+        current_sid = request.sid
+
+        # 保存会话信息
+        terminal_sessions[current_sid] = {
+            'ssh': ssh,
+            'channel': channel,
+            'host': host,
+            'user': user
+        }
+
+        # 启动输出读取线程
+        def read_output(sid):
+            while sid in terminal_sessions:
+                try:
+                    session = terminal_sessions.get(sid)
+                    if not session:
+                        break
+                    ch = session['channel']
+                    if ch.recv_ready():
+                        output = ch.recv(4096).decode('utf-8', errors='ignore')
+                        socketio.emit('ssh_output', {'data': output}, namespace='/terminal', room=sid)
+                except Exception as e:
+                    if sid in terminal_sessions:
+                        socketio.emit('ssh_error', {'error': f'读取输出错误: {str(e)}'}, namespace='/terminal', room=sid)
+                    break
+                socketio.sleep(0.01)
+
+        thread = threading.Thread(target=read_output, args=(current_sid,), daemon=True)
+        thread.start()
+
+        emit('ssh_connected', {'message': f'已连接到 {user}@{host}:{port}'})
+
+    except paramiko.AuthenticationException:
+        emit('ssh_error', {'error': 'SSH认证失败，请检查用户名和密码'})
+    except Exception as e:
+        emit('ssh_error', {'error': f'连接失败: {str(e)}'})
+
+@socketio.on('ssh_input', namespace='/terminal')
+def handle_ssh_input(data):
+    """处理用户输入"""
+    try:
+        if request.sid not in terminal_sessions:
+            emit('ssh_error', {'error': '未连接到服务器'})
+            return
+
+        session_info = terminal_sessions[request.sid]
+        channel = session_info['channel']
+
+        input_data = data.get('data', '')
+        channel.send(input_data)
+
+    except Exception as e:
+        emit('ssh_error', {'error': f'发送数据失败: {str(e)}'})
+
+@socketio.on('ssh_resize', namespace='/terminal')
+def handle_ssh_resize(data):
+    """处理终端大小调整"""
+    try:
+        if request.sid not in terminal_sessions:
+            return
+
+        session_info = terminal_sessions[request.sid]
+        channel = session_info['channel']
+
+        cols = data.get('cols', 120)
+        rows = data.get('rows', 30)
+        channel.resize_pty(width=cols, height=rows)
+
+    except Exception as e:
+        print(f'Resize error: {e}')
+
+# 旧的 REST API（保留兼容性）
+@app.route('/api/terminal/connect', methods=['POST'])
+@login_required
+def terminal_connect():
+    """连接到SSH服务器"""
+    try:
+        data = request.json
+        host = data.get('host', 'localhost')
+        port = int(data.get('port', 22))
+        user = data.get('user')
+        password = data.get('password')
+
+        if not user:
+            return jsonify({'error': '用户名不能为空'}), 400
+
+        # 生成会话ID
+        session_id = str(uuid.uuid4())
+
+        # 使用 paramiko 进行 SSH 连接
+        try:
+            import paramiko
+
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+            # 尝试连接
+            connect_kwargs = {
+                'hostname': host,
+                'port': port,
+                'username': user,
+                'timeout': 10,
+                'look_for_keys': True,  # 尝试使用密钥
+                'allow_agent': True     # 允许使用 SSH agent
+            }
+
+            # 如果提供了密码，使用密码认证
+            if password:
+                connect_kwargs['password'] = password
+
+            ssh.connect(**connect_kwargs)
+
+            terminal_sessions[session_id] = {
+                'host': host,
+                'user': user,
+                'ssh': ssh,
+                'connected': True
+            }
+
+            return jsonify({
+                'success': True,
+                'session_id': session_id,
+                'message': f'已连接到 {user}@{host}:{port}'
+            })
+
+        except ImportError:
+            return jsonify({'error': '需要安装 paramiko 库: pip install paramiko'}), 500
+        except paramiko.AuthenticationException:
+            return jsonify({'error': 'SSH认证失败，请检查用户名和密码，或确保已配置SSH密钥'}), 401
+        except paramiko.SSHException as e:
+            return jsonify({'error': f'SSH连接错误: {str(e)}'}), 500
+        except Exception as e:
+            return jsonify({'error': f'连接失败: {str(e)}'}), 500
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/terminal/execute', methods=['POST'])
+@login_required
+def terminal_execute():
+    """执行终端命令"""
+    try:
+        data = request.json
+        session_id = data.get('session_id')
+        command = data.get('command')
+
+        if not session_id or session_id not in terminal_sessions:
+            return jsonify({'error': '无效的会话ID或会话已过期'}), 400
+
+        if not command:
+            return jsonify({'error': '命令不能为空'}), 400
+
+        session_info = terminal_sessions[session_id]
+        ssh = session_info.get('ssh')
+
+        if not ssh:
+            return jsonify({'error': 'SSH连接已断开'}), 400
+
+        try:
+            # 执行命令，获取伪终端以支持交互式命令
+            stdin, stdout, stderr = ssh.exec_command(command, timeout=30, get_pty=True)
+
+            # 读取输出
+            output = stdout.read().decode('utf-8', errors='ignore').strip()
+
+            # 获取退出状态
+            exit_status = stdout.channel.recv_exit_status()
+
+            # 如果没有输出，根据退出状态显示信息
+            if not output:
+                if exit_status == 0:
+                    output = ''  # 成功但无输出，返回空字符串
+                else:
+                    output = f'命令执行失败 (退出码: {exit_status})'
+
+            return jsonify({
+                'success': True,
+                'output': output,
+                'exit_status': exit_status
+            })
+
+        except Exception as e:
+            return jsonify({'error': f'命令执行失败: {str(e)}'}), 500
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# n8n 代理路由
+@app.route('/n8n')
+@app.route('/n8n/<path:path>')
+def n8n_proxy(path=''):
+    """代理 n8n 请求"""
+    import requests
+
+    n8n_url = f'http://localhost:5678/{path}'
+
+    # 转发查询参数
+    if request.query_string:
+        n8n_url += f'?{request.query_string.decode()}'
+
+    try:
+        # 转发请求
+        if request.method == 'GET':
+            resp = requests.get(n8n_url, headers=dict(request.headers), stream=True)
+        elif request.method == 'POST':
+            resp = requests.post(n8n_url, headers=dict(request.headers), data=request.get_data(), stream=True)
+        else:
+            resp = requests.request(
+                method=request.method,
+                url=n8n_url,
+                headers=dict(request.headers),
+                data=request.get_data(),
+                stream=True
+            )
+
+        # 返回响应
+        return Response(
+            resp.iter_content(chunk_size=10*1024),
+            status=resp.status_code,
+            headers=dict(resp.headers)
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     # 启动时初始化MCP服务器
     try:
@@ -802,4 +1097,4 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"Warning: Failed to start MCP servers: {e}")
 
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
