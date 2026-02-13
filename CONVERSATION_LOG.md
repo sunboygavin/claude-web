@@ -383,5 +383,31 @@ a8c8dd8 - Add GitHub setup documentation and sync script
 ---
 
 **文档创建时间**: 2026-02-13
-**最后更新**: 2026-02-13
+**最后更新**: 2026-02-13 (添加滚动修复)
 **维护者**: sunboygavin
+
+---
+
+## 更新记录
+
+### 2026-02-13 - 滚动问题修复
+
+**问题**: 页面内容过多时无法向下滚动，导致看不到完整内容
+
+**修复内容**:
+1. 添加 `scrollToBottom()` 函数，使用 setTimeout 延迟滚动
+2. 添加 `overflow-x: hidden` 防止横向溢出
+3. 添加 `word-break` 和 `overflow-wrap` 处理长文本
+4. 降低工具结果高度从 400px 到 300px
+5. 确保消息容器不溢出
+
+**修改文件**:
+- `static/css/style.css` - CSS 样式修复
+- `static/js/script.js` - JavaScript 滚动逻辑修复
+- `SCROLLING_FIX.md` - 详细修复文档
+
+**Git 提交**:
+- `196cae8` - Fix scrolling issues and long content display
+- `00d003d` - Add scrolling fix documentation
+
+**状态**: ✅ 已修复并测试
