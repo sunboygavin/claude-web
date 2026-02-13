@@ -862,14 +862,16 @@ function closeOperationsModal() {
 }
 
 // 切换操作日志标签
-async function switchOperationsTab(tab) {
+async function switchOperationsTab(tab, event) {
     currentOperationsTab = tab;
 
     // 更新标签样式
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
     });
-    event.target.classList.add('active');
+    if (event && event.target) {
+        event.target.classList.add('active');
+    }
 
     await loadOperations(tab);
 }

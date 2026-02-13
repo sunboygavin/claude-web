@@ -72,10 +72,10 @@
                         </div>
                         <div class="modal-body">
                             <div class="operations-tabs">
-                                <button class="tab-btn active" onclick="switchOperationsTab('all')">全部</button>
-                                <button class="tab-btn" onclick="switchOperationsTab('pending')">待审批</button>
-                                <button class="tab-btn" onclick="switchOperationsTab('approved')">已批准</button>
-                                <button class="tab-btn" onclick="switchOperationsTab('rejected')">已拒绝</button>
+                                <button class="tab-btn active" onclick="switchOperationsTab('all', event)">全部</button>
+                                <button class="tab-btn" onclick="switchOperationsTab('pending', event)">待审批</button>
+                                <button class="tab-btn" onclick="switchOperationsTab('approved', event)">已批准</button>
+                                <button class="tab-btn" onclick="switchOperationsTab('rejected', event)">已拒绝</button>
                             </div>
                             <div id="operationsList" class="operations-list"></div>
                         </div>
