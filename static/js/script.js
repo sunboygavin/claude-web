@@ -375,6 +375,9 @@ async function sendMessage() {
     showTypingIndicator();
 
     try {
+        // 获取auto_approve设置
+        const autoApprove = document.getElementById('autoApproveToggle').checked;
+
         const response = await fetch('/api/chat', {
             method: 'POST',
             headers: {
@@ -382,7 +385,8 @@ async function sendMessage() {
             },
             body: JSON.stringify({
                 message: message,
-                history: conversationHistory.slice(0, -1)
+                history: conversationHistory.slice(0, -1),
+                auto_approve: autoApprove
             })
         });
 

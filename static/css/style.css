@@ -221,6 +221,33 @@ body {
     color: white;
 }
 
+.auto-approve-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-size: 14px;
+    color: white;
+}
+
+.auto-approve-toggle:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.auto-approve-toggle input[type="checkbox"] {
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+}
+
+.auto-approve-toggle span {
+    user-select: none;
+}
+
 .action-btn {
     background: rgba(255, 255, 255, 0.2);
     border: none;

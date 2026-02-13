@@ -296,6 +296,7 @@ def chat():
         data = request.json
         user_message = data.get('message', '')
         conversation_history = data.get('history', [])
+        auto_approve = data.get('auto_approve', False)  # 获取auto_approve参数
         username = session.get('username')
         current_model = session.get('model', config.DEFAULT_MODEL)
         session_id = session.get('session_id')
@@ -405,7 +406,7 @@ def chat():
                             tool_input=tool_input,
                             username=username,
                             session_id=session_id,
-                            auto_approve=False
+                            auto_approve=auto_approve
                         )
 
                         # 检查是否需要用户输入
