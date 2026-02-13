@@ -57,30 +57,7 @@ def check_requires_permission(tool_name: str, tool_input: Dict[str, Any]) -> boo
     Returns:
         True if permission is required, False otherwise
     """
-    # File write operations outside workspace
-    if tool_name in ['write_file', 'edit_file']:
-        file_path = tool_input.get('file_path', '')
-        if file_path and not file_path.startswith(WORKSPACE_PATH):
-            return True
-
-    # Bash commands - check for destructive operations
-    if tool_name == 'bash':
-        command = tool_input.get('command', '')
-
-        # Check destructive commands
-        for pattern in DESTRUCTIVE_COMMANDS:
-            if re.search(pattern, command, re.IGNORECASE):
-                return True
-
-        # Check git commands that need permission
-        for pattern in GIT_PERMISSION_COMMANDS:
-            if re.search(pattern, command, re.IGNORECASE):
-                return True
-
-    # All MCP tool calls require permission (external API calls)
-    if ':' in tool_name:  # MCP tools are prefixed with server name
-        return True
-
+    # Disable automatic permission checks - let Claude decide when to ask
     return False
 
 

@@ -452,30 +452,35 @@ async function sendMessage() {
 
                         } else if (data.type === 'tool_result') {
                             // 工具结果
-                            const resultDiv = document.createElement('div');
-                            resultDiv.className = 'tool-result';
-
-                            let resultContent = '';
+                            console.log('Tool result received:', data);
 
                             // 检查是否是用户问题
-                            if (data.result.requires_user_input && data.result.questions) {
+                            if (data.result && data.result.requires_user_input && data.result.questions) {
                                 // 显示用户问题界面
+                                console.log('Showing user questions:', data.result.questions);
                                 showUserQuestions(data.result.questions, messageDiv);
-                                continue; // 跳过正常的结果显示
-                            }
-
-                            if (data.result.success) {
-                                resultContent = data.result.output || data.result.content || data.result.message || JSON.stringify(data.result, null, 2);
+                                scrollToBottom();
                             } else {
-                                resultContent = `❌ Error: ${data.result.error}`;
-                            }
+                                // 正常的工具结果
+                                const resultDiv = document.createElement('div');
+                                resultDiv.className = 'tool-result';
 
-                            resultDiv.innerHTML = `
-                                <div class="tool-result-header">📋 Result</div>
-                                <pre class="tool-result-content">${resultContent}</pre>
-                            `;
-                            messageDiv.appendChild(resultDiv);
-                            scrollToBottom();
+                                let resultContent = '';
+                                if (data.result && data.result.success) {
+                                    resultContent = data.result.output || data.result.content || data.result.message || JSON.stringify(data.result, null, 2);
+                                } else if (data.result) {
+                                    resultContent = `❌ Error: ${data.result.error}`;
+                                } else {
+                                    resultContent = JSON.stringify(data.result, null, 2);
+                                }
+
+                                resultDiv.innerHTML = `
+                                    <div class="tool-result-header">📋 Result</div>
+                                    <pre class="tool-result-content">${resultContent}</pre>
+                                `;
+                                messageDiv.appendChild(resultDiv);
+                                scrollToBottom();
+                            }
 
                             // 记录工具结果
                             toolCalls.push({
@@ -1144,28 +1149,127 @@ async function submitUserAnswers(questions, questionDiv) {
             </div>
         </div>
     `;
+    scrollToBottom();
 
-    // 将答案发送给后端继续对话
-    // 这里需要将答案作为用户消息发送
+    // 构建答案文本
     const answerText = Object.entries(answers)
         .map(([key, value]) => `${key}: ${value}`)
         .join('\n');
 
-    // 添加到对话历史
-    conversationHistory.push({
-        role: 'user',
-        content: `[用户回答]\n${answerText}`
-    });
-
-    // 继续对话
-    await continueConversationWithAnswers(answers);
+    // 将答案作为 tool_result 发送回 Claude
+    await continueConversationWithAnswers(answerText, answers);
 }
 
 // 继续对话（带用户答案）
-async function continueConversationWithAnswers(answers) {
-    // 这里可以实现继续对话的逻辑
-    // 暂时只是显示答案已提交
-    addSystemMessage('✓ 答案已提交，Claude 将继续处理');
+async function continueConversationWithAnswers(answerText, answers) {
+    try {
+        // 添加用户答案到对话历史
+        conversationHistory.push({
+            role: 'user',
+            content: answerText
+        });
+
+        // 保存用户答案到数据库
+        await fetch('/api/save-message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                role: 'user',
+                content: answerText
+            })
+        });
+
+        // 显示用户答案消息
+        addMessage('user', answerText);
+
+        // 显示输入指示器
+        showTypingIndicator();
+
+        // 继续对话
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                message: answerText,
+                history: conversationHistory.slice(0, -1)
+            })
+        });
+
+        removeTypingIndicator();
+
+        if (!response.ok) {
+            const error = await response.json();
+            addMessage('assistant', `错误: ${error.error}`);
+            return;
+        }
+
+        // 处理流式响应（复用现有逻辑）
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message assistant';
+        chatContainer.appendChild(messageDiv);
+
+        let fullResponse = '';
+        let currentTextDiv = null;
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    try {
+                        const data = JSON.parse(line.slice(6));
+
+                        if (data.type === 'text') {
+                            if (!currentTextDiv) {
+                                currentTextDiv = document.createElement('div');
+                                currentTextDiv.className = 'message-content';
+                                messageDiv.appendChild(currentTextDiv);
+                            }
+                            fullResponse += data.content;
+                            currentTextDiv.textContent = fullResponse;
+                            scrollToBottom();
+                        }
+                    } catch (e) {
+                        // Ignore parse errors
+                    }
+                }
+            }
+        }
+
+        // 保存 assistant 响应
+        if (fullResponse) {
+            conversationHistory.push({
+                role: 'assistant',
+                content: fullResponse
+            });
+
+            await fetch('/api/save-message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    role: 'assistant',
+                    content: fullResponse
+                })
+            });
+        }
+
+    } catch (error) {
+        removeTypingIndicator();
+        addMessage('assistant', `错误: ${error.message}`);
+    }
 }
 
 
