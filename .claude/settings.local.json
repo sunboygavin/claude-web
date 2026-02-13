@@ -24,7 +24,15 @@
       "Bash(claude-code config:*)",
       "Bash(git init:*)",
       "Bash(git config:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(gh:*)",
+      "Bash(unset:*)",
+      "Bash(git remote add origin https://sunboygavin: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@github.com/sunboygavin/claude-web.git)",
+      "Bash(git branch:*)",
+      "Bash(git remote:*)",
+      "Bash(git remote add:*)",
+      "Bash(ssh:*)"
     ]
   }
 }
