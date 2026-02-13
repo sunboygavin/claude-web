@@ -36,7 +36,10 @@
       "Bash(git push:*)",
       "Bash(find:*)",
       "Bash(pkill:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "Bash(ls:*)",
+      "Bash(node --check:*)",
+      "Bash(tee:*)"
     ]
   }
 }
