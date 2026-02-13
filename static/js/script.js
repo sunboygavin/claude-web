@@ -525,6 +525,19 @@ async function sendMessage() {
                             // 确保权限请求可见
                             console.log('Permission div added to DOM:', permissionDiv);
 
+                        } else if (data.type === 'waiting_user_input') {
+                            // 等待用户输入（ask_user_question）
+                            console.log('Waiting for user input');
+                            // 显示提示信息
+                            const waitingDiv = document.createElement('div');
+                            waitingDiv.className = 'waiting-input';
+                            waitingDiv.innerHTML = `
+                                <div class="waiting-header">⏸️ 等待用户回答</div>
+                                <div class="waiting-message">Claude正在等待您回答上面的问题</div>
+                            `;
+                            messageDiv.appendChild(waitingDiv);
+                            scrollToBottom();
+
                         } else if (data.type === 'error') {
                             const errorDiv = document.createElement('div');
                             errorDiv.className = 'message-content error';
