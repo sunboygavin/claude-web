@@ -137,11 +137,16 @@
         <div class="sandbox-panel" id="sandboxPanel">
             <div class="sandbox-header">
                 <h3>代码沙盒</h3>
-                <button id="toggleSandbox" class="toggle-btn">▶</button>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <button onclick="window.open('http://localhost:5678', '_blank')"
+                            style="padding: 3px 10px; background: #667eea; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 10px; font-weight: 600;">
+                        n8n
+                    </button>
+                    <button id="toggleSandbox" class="toggle-btn">▶</button>
+                </div>
             </div>
             <div class="sandbox-tabs">
                 <button class="sandbox-tab active" data-tab="terminal">终端</button>
-                <button class="sandbox-tab" data-tab="n8n">n8n</button>
             </div>
             <div class="sandbox-content">
                 <div class="sandbox-tab-content active" id="terminalTab">
@@ -158,22 +163,10 @@
                         <div id="xterm-container" class="xterm-container"></div>
                     </div>
                 </div>
-                <div class="sandbox-tab-content" id="n8nTab">
-                    <div style="display: flex; flex-direction: column; height: 100%; background: #1e1e1e;">
-                        <div style="padding: 6px 10px; background: #2d2d2d; border-bottom: 1px solid #333; display: flex; justify-content: space-between; align-items: center;">
-                            <span style="color: #999; font-size: 10px;">n8n 工作流引擎</span>
-                            <button onclick="window.open('http://localhost:5678', '_blank')"
-                                    style="padding: 3px 8px; background: #667eea; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 10px;">
-                                新窗口
-                            </button>
-                        </div>
-                        <iframe id="n8nFrame" src="/n8n/" style="flex: 1; width: 100%; border: none; background: white;"></iframe>
-                    </div>
-                </div>
             </div>
-            <div class="sandbox-actions">
-                <button id="runSandbox" class="sandbox-btn run" style="display: none;">▶ 运行</button>
-                <button id="clearSandbox" class="sandbox-btn clear" style="display: none;">清空</button>
+            <div class="sandbox-actions" style="display: none;">
+                <button id="runSandbox" class="sandbox-btn run">▶ 运行</button>
+                <button id="clearSandbox" class="sandbox-btn clear">清空</button>
             </div>
         </div>
     </div>
