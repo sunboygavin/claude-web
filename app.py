@@ -1074,10 +1074,11 @@ def n8n_proxy(path=''):
         n8n_url += f'?{request.query_string.decode()}'
 
     try:
-        # 准备请求头，移除Host
-        headers = {key: value for key, value in request.headers if key.lower() not in ['host', 'connection']}
+        # 准备请求头，移除Host和Accept-Encoding
+        headers = {key: value for key, value in request.headers
+                  if key.lower() not in ['host', 'connection', 'accept-encoding']}
 
-        # 转发请求
+        # 转发请求，禁用压缩
         resp = requests.request(
             method=request.method,
             url=n8n_url,
@@ -1088,14 +1089,11 @@ def n8n_proxy(path=''):
             stream=True
         )
 
-        # 准备响应头
-        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
+        # 准备响应头，排除可能导致问题的头部
+        excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding',
+                          'connection', 'x-frame-options', 'content-security-policy']
         response_headers = [(name, value) for (name, value) in resp.raw.headers.items()
                           if name.lower() not in excluded_headers]
-
-        # 移除X-Frame-Options以允许iframe嵌入
-        response_headers = [(name, value) for (name, value) in response_headers
-                          if name.lower() != 'x-frame-options']
 
         # 返回响应
         return Response(
