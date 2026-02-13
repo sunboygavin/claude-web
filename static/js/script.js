@@ -1523,9 +1523,21 @@ function initTerminal() {
     const sshPassword = document.getElementById('sshPassword');
 
     console.log('Initializing terminal...');
+    console.log('connectBtn:', connectBtn);
+    console.log('xtermContainer:', xtermContainer);
     console.log('Terminal object:', typeof Terminal);
     console.log('FitAddon object:', typeof FitAddon);
     console.log('io object:', typeof io);
+
+    if (!connectBtn) {
+        console.error('connectBtn not found!');
+        return;
+    }
+
+    if (!xtermContainer) {
+        console.error('xterm-container not found!');
+        return;
+    }
 
     // 检查依赖是否加载
     if (typeof Terminal === 'undefined') {
