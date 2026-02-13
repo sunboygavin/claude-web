@@ -449,7 +449,7 @@ def chat():
                                         ]
                                     })
 
-                                    # 继续流式响应
+                                    # 继续流式响应（支持多轮工具调用）
                                     follow_up = client.messages.create(
                                         model=model_id,
                                         max_tokens=4096,
@@ -459,11 +459,56 @@ def chat():
                                         stream=True
                                     )
 
+                                    follow_text = ""
+                                    follow_tool_uses = []
+
                                     for follow_event in follow_up:
-                                        if follow_event.type == "content_block_delta":
-                                            if hasattr(follow_event.delta, 'type') and follow_event.delta.type == "text_delta":
-                                                assistant_response += follow_event.delta.text
-                                                yield f"data: {json.dumps({'type': 'text', 'content': follow_event.delta.text})}\n\n"
+                                        if follow_event.type == "content_block_start":
+                                            if hasattr(follow_event.content_block, 'type'):
+                                                if follow_event.content_block.type == "tool_use":
+                                                    follow_tool_uses.append({
+                                                        "id": follow_event.content_block.id,
+                                                        "name": follow_event.content_block.name,
+                                                        "input": {}
+                                                    })
+
+                                        elif follow_event.type == "content_block_delta":
+                                            if hasattr(follow_event.delta, 'type'):
+                                                if follow_event.delta.type == "text_delta":
+                                                    follow_text += follow_event.delta.text
+                                                    assistant_response += follow_event.delta.text
+                                                    yield f"data: {json.dumps({'type': 'text', 'content': follow_event.delta.text})}\n\n"
+                                                elif follow_event.delta.type == "input_json_delta":
+                                                    if follow_tool_uses:
+                                                        follow_tool_uses[-1]["input_json"] = follow_tool_uses[-1].get("input_json", "") + follow_event.delta.partial_json
+
+                                        elif follow_event.type == "content_block_stop":
+                                            # 处理后续工具调用
+                                            if follow_tool_uses:
+                                                for follow_tool in follow_tool_uses:
+                                                    if "input_json" in follow_tool:
+                                                        follow_input = json.loads(follow_tool["input_json"])
+                                                        follow_name = follow_tool["name"]
+
+                                                        yield f"data: {json.dumps({'type': 'tool_use', 'name': follow_name, 'input': follow_input})}\n\n"
+
+                                                        # 执行工具
+                                                        follow_result = tool_router.execute_tool(
+                                                            tool_name=follow_name,
+                                                            tool_input=follow_input,
+                                                            username=username,
+                                                            session_id=session_id,
+                                                            auto_approve=False
+                                                        )
+
+                                                        if follow_result['status'] == 'success':
+                                                            result_data = follow_result['result']
+                                                        else:
+                                                            result_data = {'error': follow_result.get('error', '执行失败')}
+
+                                                        yield f"data: {json.dumps({'type': 'tool_result', 'name': follow_name, 'result': result_data})}\n\n"
+
+                                                follow_tool_uses = []
 
                 # 保存 assistant 响应到数据库
                 if assistant_response:
