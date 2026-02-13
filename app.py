@@ -705,13 +705,15 @@ def operations_logs():
         username = session.get('username')
         session_id = session.get('session_id')
         status = request.args.get('status')
-        limit = request.args.get('limit', 100, type=int)
+        limit = request.args.get('limit', 20, type=int)
+        offset = request.args.get('offset', 0, type=int)
 
         logs = get_operation_logs(
             username=username,
             session_id=session_id,
             status=status,
-            limit=limit
+            limit=limit,
+            offset=offset
         )
 
         return jsonify({'success': True, 'logs': logs})

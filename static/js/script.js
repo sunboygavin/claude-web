@@ -717,7 +717,16 @@ async function performSearch() {
                 return;
             }
 
-            resultsDiv.innerHTML = `<div class="results-count">找到 ${data.count} 条结果</div>`;
+            // 清空并添加计数
+            resultsDiv.innerHTML = '';
+            const countDiv = document.createElement('div');
+            countDiv.className = 'results-count';
+            countDiv.textContent = `找到 ${data.count} 条结果`;
+            resultsDiv.appendChild(countDiv);
+
+            // 缓存正则表达式
+            const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+            const fragment = document.createDocumentFragment();
 
             data.results.forEach(result => {
                 const resultItem = document.createElement('div');
@@ -728,7 +737,6 @@ async function performSearch() {
 
                 // 高亮搜索关键词
                 let highlightedContent = result.content;
-                const regex = new RegExp(`(${query})`, 'gi');
                 highlightedContent = highlightedContent.replace(regex, '<mark>$1</mark>');
 
                 // 截取内容（最多显示 200 字符）
@@ -739,16 +747,23 @@ async function performSearch() {
                     highlightedContent = '...' + highlightedContent.substring(start, end) + '...';
                 }
 
-                resultItem.innerHTML = `
-                    <div class="result-header">
-                        <span class="result-role">${roleLabel}</span>
-                        <span class="result-time">${timestamp}</span>
-                    </div>
-                    <div class="result-content">${highlightedContent}</div>
+                const header = document.createElement('div');
+                header.className = 'result-header';
+                header.innerHTML = `
+                    <span class="result-role">${roleLabel}</span>
+                    <span class="result-time">${timestamp}</span>
                 `;
 
-                resultsDiv.appendChild(resultItem);
+                const content = document.createElement('div');
+                content.className = 'result-content';
+                content.innerHTML = highlightedContent;
+
+                resultItem.appendChild(header);
+                resultItem.appendChild(content);
+                fragment.appendChild(resultItem);
             });
+
+            resultsDiv.appendChild(fragment);
         } else {
             resultsDiv.innerHTML = `<div class="error">搜索失败: ${data.error}</div>`;
         }
@@ -765,7 +780,7 @@ async function openHistoryModal() {
     historyList.innerHTML = '<div class="loading">加载中...</div>';
 
     try {
-        const response = await fetch('/api/history?limit=100');
+        const response = await fetch('/api/history?limit=50');
         const data = await response.json();
 
         if (response.ok) {
@@ -775,6 +790,7 @@ async function openHistoryModal() {
             }
 
             historyList.innerHTML = '';
+            const fragment = document.createDocumentFragment();
 
             data.history.forEach(msg => {
                 const historyItem = document.createElement('div');
@@ -789,16 +805,23 @@ async function openHistoryModal() {
                     content = content.substring(0, 150) + '...';
                 }
 
-                historyItem.innerHTML = `
-                    <div class="history-header">
-                        <span class="history-role">${roleLabel}</span>
-                        <span class="history-time">${timestamp}</span>
-                    </div>
-                    <div class="history-content">${content}</div>
+                const header = document.createElement('div');
+                header.className = 'history-header';
+                header.innerHTML = `
+                    <span class="history-role">${roleLabel}</span>
+                    <span class="history-time">${timestamp}</span>
                 `;
 
-                historyList.appendChild(historyItem);
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'history-content';
+                contentDiv.textContent = content;
+
+                historyItem.appendChild(header);
+                historyItem.appendChild(contentDiv);
+                fragment.appendChild(historyItem);
             });
+
+            historyList.appendChild(fragment);
         } else {
             historyList.innerHTML = `<div class="error">加载失败: ${data.error}</div>`;
         }
@@ -852,12 +875,28 @@ async function switchOperationsTab(tab) {
 }
 
 // 加载操作日志
-async function loadOperations(status) {
+let operationsOffset = 0;
+let operationsHasMore = true;
+let operationsLoading = false;
+
+async function loadOperations(status, append = false) {
     const operationsList = document.getElementById('operationsList');
-    operationsList.innerHTML = '<div class="loading">加载中...</div>';
+
+    if (operationsLoading) return;
+    operationsLoading = true;
+
+    if (!append) {
+        operationsOffset = 0;
+        operationsHasMore = true;
+        operationsList.innerHTML = '<div class="loading">加载中...</div>';
+    } else {
+        // 移除旧的"加载更多"按钮
+        const oldLoadMore = operationsList.querySelector('.load-more');
+        if (oldLoadMore) oldLoadMore.remove();
+    }
 
     try {
-        let url = '/api/operations/logs?limit=50';
+        let url = `/api/operations/logs?limit=20&offset=${operationsOffset}`;
         if (status !== 'all') {
             url += `&status=${status}`;
         }
@@ -866,12 +905,21 @@ async function loadOperations(status) {
         const data = await response.json();
 
         if (response.ok && data.success) {
+            if (!append) {
+                operationsList.innerHTML = '';
+            }
+
             if (data.logs.length === 0) {
-                operationsList.innerHTML = '<div class="no-results">暂无操作记录</div>';
+                if (!append) {
+                    operationsList.innerHTML = '<div class="no-results">暂无操作记录</div>';
+                }
+                operationsHasMore = false;
+                operationsLoading = false;
                 return;
             }
 
-            operationsList.innerHTML = '';
+            // 使用DocumentFragment批量插入
+            const fragment = document.createDocumentFragment();
 
             data.logs.forEach(log => {
                 const operationItem = document.createElement('div');
@@ -885,33 +933,91 @@ async function loadOperations(status) {
                     'executed': '已执行'
                 }[log.status.toLowerCase()] || log.status;
 
-                let actionsHtml = '';
-                if (log.status.toLowerCase() === 'pending') {
-                    actionsHtml = `
-                        <div class="operation-actions">
-                            <button class="approve-btn" onclick="approveOperation(${log.id})">批准</button>
-                            <button class="reject-btn" onclick="rejectOperation(${log.id})">拒绝</button>
-                        </div>
-                    `;
-                }
-
-                operationItem.innerHTML = `
-                    <div class="operation-header">
-                        <span class="operation-tool">${log.tool_name}</span>
-                        <span class="operation-status ${statusClass}">${statusText}</span>
-                    </div>
-                    <div class="operation-preview">${JSON.stringify(log.input_data || {}, null, 2)}</div>
-                    <div class="operation-time">${log.created_at || log.timestamp}</div>
-                    ${actionsHtml}
+                // 创建header
+                const header = document.createElement('div');
+                header.className = 'operation-header';
+                header.innerHTML = `
+                    <span class="operation-tool">${log.tool_name}</span>
+                    <span class="operation-status ${statusClass}">${statusText}</span>
                 `;
 
-                operationsList.appendChild(operationItem);
+                // 创建预览（折叠JSON）
+                const preview = document.createElement('div');
+                preview.className = 'operation-preview collapsed';
+                const jsonStr = JSON.stringify(log.input_data || {}, null, 2);
+                const shortPreview = jsonStr.length > 100 ? jsonStr.substring(0, 100) + '...' : jsonStr;
+                preview.textContent = shortPreview;
+                preview.dataset.full = jsonStr;
+                preview.dataset.short = shortPreview;
+                preview.style.cursor = 'pointer';
+                preview.onclick = function() {
+                    if (this.classList.contains('collapsed')) {
+                        this.textContent = this.dataset.full;
+                        this.classList.remove('collapsed');
+                    } else {
+                        this.textContent = this.dataset.short;
+                        this.classList.add('collapsed');
+                    }
+                };
+
+                // 创建时间
+                const time = document.createElement('div');
+                time.className = 'operation-time';
+                time.textContent = log.created_at || log.timestamp;
+
+                operationItem.appendChild(header);
+                operationItem.appendChild(preview);
+                operationItem.appendChild(time);
+
+                // 添加操作按钮
+                if (log.status.toLowerCase() === 'pending') {
+                    const actions = document.createElement('div');
+                    actions.className = 'operation-actions';
+
+                    const approveBtn = document.createElement('button');
+                    approveBtn.className = 'approve-btn';
+                    approveBtn.textContent = '批准';
+                    approveBtn.onclick = () => approveOperation(log.id);
+
+                    const rejectBtn = document.createElement('button');
+                    rejectBtn.className = 'reject-btn';
+                    rejectBtn.textContent = '拒绝';
+                    rejectBtn.onclick = () => rejectOperation(log.id);
+
+                    actions.appendChild(approveBtn);
+                    actions.appendChild(rejectBtn);
+                    operationItem.appendChild(actions);
+                }
+
+                fragment.appendChild(operationItem);
             });
+
+            operationsList.appendChild(fragment);
+            operationsOffset += data.logs.length;
+
+            if (data.logs.length < 20) {
+                operationsHasMore = false;
+            }
+
+            // 添加"加载更多"按钮
+            if (operationsHasMore) {
+                const loadMore = document.createElement('div');
+                loadMore.className = 'load-more';
+                loadMore.textContent = '加载更多...';
+                loadMore.style.textAlign = 'center';
+                loadMore.style.padding = '10px';
+                loadMore.style.cursor = 'pointer';
+                loadMore.style.color = '#007bff';
+                loadMore.onclick = () => loadOperations(status, true);
+                operationsList.appendChild(loadMore);
+            }
         } else {
             operationsList.innerHTML = `<div class="error">加载失败: ${data.error || '未知错误'}</div>`;
         }
     } catch (error) {
         operationsList.innerHTML = `<div class="error">加载失败: ${error.message}</div>`;
+    } finally {
+        operationsLoading = false;
     }
 }
 

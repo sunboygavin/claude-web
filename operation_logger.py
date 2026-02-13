@@ -220,7 +220,7 @@ def update_operation_status(log_id: int, status: str,
 
 
 def get_operation_logs(username: str = None, session_id: str = None,
-                       status: str = None, limit: int = 100) -> List[Dict]:
+                       status: str = None, limit: int = 100, offset: int = 0) -> List[Dict]:
     """
     Get operation logs.
 
@@ -229,6 +229,7 @@ def get_operation_logs(username: str = None, session_id: str = None,
         session_id: Filter by session ID
         status: Filter by status
         limit: Maximum number of logs to return
+        offset: Number of logs to skip
 
     Returns:
         List of operation log dictionaries
@@ -251,8 +252,9 @@ def get_operation_logs(username: str = None, session_id: str = None,
         query += ' AND status = ?'
         params.append(status)
 
-    query += ' ORDER BY created_at DESC LIMIT ?'
+    query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?'
     params.append(limit)
+    params.append(offset)
 
     cursor.execute(query, params)
 
