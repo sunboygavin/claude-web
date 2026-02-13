@@ -1415,12 +1415,6 @@ function initSandbox() {
     const sandboxPanel = document.getElementById('sandboxPanel');
     const toggleSandbox = document.getElementById('toggleSandbox');
     const sandboxTabs = document.querySelectorAll('.sandbox-tab');
-    const runBtn = document.getElementById('runSandbox');
-    const clearBtn = document.getElementById('clearSandbox');
-    const htmlEditor = document.getElementById('htmlEditor');
-    const cssEditor = document.getElementById('cssEditor');
-    const jsEditor = document.getElementById('jsEditor');
-    const preview = document.getElementById('sandboxPreview');
 
     // 切换沙盒面板
     toggleSandbox.addEventListener('click', () => {
@@ -1442,71 +1436,6 @@ function initSandbox() {
                 content.classList.remove('active');
             });
             document.getElementById(tabName + 'Tab').classList.add('active');
-        });
-    });
-
-    // 运行代码
-    runBtn.addEventListener('click', () => {
-        const html = htmlEditor.value;
-        const css = cssEditor.value;
-        const js = jsEditor.value;
-
-        const fullHTML = `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body {
-            margin: 0;
-            padding: 20px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-        ${css}
-    </style>
-</head>
-<body>
-    ${html}
-    <script>
-        try {
-            ${js}
-        } catch (error) {
-            document.body.innerHTML += '<div style="color: red; padding: 10px; background: #ffebee; border-radius: 4px; margin-top: 10px;"><strong>错误:</strong> ' + error.message + '</div>';
-        }
-    </script>
-</body>
-</html>
-        `;
-
-        const blob = new Blob([fullHTML], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        preview.src = url;
-
-        // 切换到预览标签
-        document.querySelector('.sandbox-tab[data-tab="preview"]').click();
-    });
-
-    // 清空代码
-    clearBtn.addEventListener('click', () => {
-        if (confirm('确定要清空所有代码吗？')) {
-            htmlEditor.value = '';
-            cssEditor.value = '';
-            jsEditor.value = '';
-            preview.src = 'about:blank';
-        }
-    });
-
-    // 支持 Tab 键缩进
-    [htmlEditor, cssEditor, jsEditor].forEach(editor => {
-        editor.addEventListener('keydown', (e) => {
-            if (e.key === 'Tab') {
-                e.preventDefault();
-                const start = editor.selectionStart;
-                const end = editor.selectionEnd;
-                editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end);
-                editor.selectionStart = editor.selectionEnd = start + 2;
-            }
         });
     });
 
