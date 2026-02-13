@@ -34,7 +34,8 @@ def init_db():
                 content TEXT NOT NULL,
                 model TEXT,
                 timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                session_id TEXT
+                session_id TEXT,
+                metadata TEXT
             )
         ''')
 
@@ -52,15 +53,21 @@ def init_db():
             CREATE INDEX IF NOT EXISTS idx_content ON conversations(content)
         ''')
 
-def save_message(username, role, content, model=None, session_id=None):
+    # 初始化MCP相关表
+    from mcp_database import init_mcp_db
+    init_mcp_db()
+
+def save_message(username, role, content, model=None, session_id=None, metadata=None):
     """保存单条消息"""
     with get_db_connection() as conn:
         cursor = conn.cursor()
 
+        metadata_json = json.dumps(metadata) if metadata else None
+
         cursor.execute('''
-            INSERT INTO conversations (username, role, content, model, session_id)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (username, role, content, model, session_id))
+            INSERT INTO conversations (username, role, content, model, session_id, metadata)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (username, role, content, model, session_id, metadata_json))
 
         message_id = cursor.lastrowid
 
@@ -72,7 +79,7 @@ def get_conversation_history(username, limit=100):
         cursor = conn.cursor()
 
         cursor.execute('''
-            SELECT id, role, content, model, timestamp, session_id
+            SELECT id, role, content, model, timestamp, session_id, metadata
             FROM conversations
             WHERE username = ?
             ORDER BY timestamp DESC
@@ -84,13 +91,15 @@ def get_conversation_history(username, limit=100):
     # 反转顺序，使最新的在最后
     messages = []
     for row in reversed(rows):
+        metadata = json.loads(row[6]) if row[6] else None
         messages.append({
             'id': row[0],
             'role': row[1],
             'content': row[2],
             'model': row[3],
             'timestamp': row[4],
-            'session_id': row[5]
+            'session_id': row[5],
+            'metadata': metadata
         })
 
     return messages

@@ -214,6 +214,56 @@ TOOLS = [
             },
             "required": ["query"]
         }
+    },
+    {
+        "name": "ask_user_question",
+        "description": "Ask the user questions during execution to gather preferences, clarify requirements, or get decisions on implementation choices. Use this when you need user input to proceed.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "questions": {
+                    "type": "array",
+                    "description": "Questions to ask the user (1-4 questions)",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "question": {
+                                "type": "string",
+                                "description": "The complete question to ask the user"
+                            },
+                            "header": {
+                                "type": "string",
+                                "description": "Very short label displayed as a chip/tag (max 12 chars)"
+                            },
+                            "options": {
+                                "type": "array",
+                                "description": "The available choices for this question (2-4 options)",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "label": {
+                                            "type": "string",
+                                            "description": "The display text for this option"
+                                        },
+                                        "description": {
+                                            "type": "string",
+                                            "description": "Explanation of what this option means"
+                                        }
+                                    },
+                                    "required": ["label", "description"]
+                                }
+                            },
+                            "multiSelect": {
+                                "type": "boolean",
+                                "description": "Set to true to allow multiple options to be selected"
+                            }
+                        },
+                        "required": ["question", "header", "options", "multiSelect"]
+                    }
+                }
+            },
+            "required": ["questions"]
+        }
     }
 ]
 
@@ -629,6 +679,15 @@ def execute_web_search(query):
     except Exception as e:
         return {"success": False, "error": str(e)}
 
+def execute_ask_user_question(questions):
+    """向用户提问（需要前端交互）"""
+    # 这个工具需要特殊处理，返回一个标记让前端知道需要显示问题
+    return {
+        "success": True,
+        "requires_user_input": True,
+        "questions": questions
+    }
+
 def execute_tool(tool_name, tool_input):
     """执行工具调用"""
     if tool_name == "bash":
@@ -674,5 +733,47 @@ def execute_tool(tool_name, tool_input):
         return execute_web_fetch(tool_input.get("url"), tool_input.get("prompt"))
     elif tool_name == "web_search":
         return execute_web_search(tool_input.get("query"))
+    elif tool_name == "ask_user_question":
+        return execute_ask_user_question(tool_input.get("questions"))
     else:
         return {"success": False, "error": f"Unknown tool: {tool_name}"}
+
+# 工具元数据 - 用于权限检查
+TOOL_METADATA = {
+    "bash": {
+        "requires_permission": True,
+        "description": "执行bash命令可能会修改系统状态"
+    },
+    "write_file": {
+        "requires_permission": True,
+        "description": "写入文件会修改文件系统"
+    },
+    "edit_file": {
+        "requires_permission": True,
+        "description": "编辑文件会修改文件内容"
+    },
+    "read_file": {
+        "requires_permission": False,
+        "description": "只读操作，无需权限"
+    },
+    "glob": {
+        "requires_permission": False,
+        "description": "只读操作，无需权限"
+    },
+    "grep": {
+        "requires_permission": False,
+        "description": "只读操作，无需权限"
+    },
+    "list_directory": {
+        "requires_permission": False,
+        "description": "只读操作，无需权限"
+    },
+    "web_fetch": {
+        "requires_permission": False,
+        "description": "只读操作，无需权限"
+    },
+    "web_search": {
+        "requires_permission": False,
+        "description": "只读操作，无需权限"
+    }
+}

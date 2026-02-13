@@ -9,6 +9,17 @@ import json
 import database
 import uuid
 import system_prompt
+from mcp.security import init_encryption
+from mcp.manager import get_mcp_manager
+from tool_router import get_tool_router
+from operation_logger import (
+    get_operation_logs,
+    get_pending_operations,
+    grant_permission,
+    reject_permission,
+    get_operation_stats
+)
+import mcp_database
 
 app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
@@ -16,6 +27,11 @@ app.secret_key = config.SECRET_KEY
 # 使用配置文件中的设置
 ANTHROPIC_BASE_URL = config.ANTHROPIC_BASE_URL
 ANTHROPIC_AUTH_TOKEN = config.ANTHROPIC_AUTH_TOKEN
+
+# 初始化MCP
+init_encryption(config.SECRET_KEY)
+mcp_manager = get_mcp_manager()
+tool_router = get_tool_router()
 
 # 登录验证装饰器
 def login_required(f):
@@ -253,6 +269,26 @@ def export_conversation():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/save-message', methods=['POST'])
+@login_required
+def save_message_api():
+    """保存消息到数据库"""
+    try:
+        data = request.json
+        username = session.get('username')
+        current_model = session.get('model', config.DEFAULT_MODEL)
+        session_id = session.get('session_id')
+
+        role = data.get('role')
+        content = data.get('content')
+        metadata = data.get('metadata')
+
+        database.save_message(username, role, content, current_model, session_id, metadata)
+
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/chat', methods=['POST'])
 @login_required
 def chat():
@@ -301,12 +337,15 @@ def chat():
         def generate():
             assistant_response = ""
             try:
+                # 获取所有工具（包括MCP工具）
+                all_tools = tool_router.get_all_tools()
+
                 # 使用工具调用
                 response = client.messages.create(
                     model=model_id,
                     max_tokens=4096,
                     messages=messages,
-                    tools=tools.TOOLS,
+                    tools=all_tools,
                     system=system_prompt.get_system_prompt(),
                     stream=True
                 )
@@ -346,8 +385,31 @@ def chat():
                                     # 发送工具调用信息
                                     yield f"data: {json.dumps({'type': 'tool_use', 'name': tool_name, 'input': tool_input})}\n\n"
 
-                                    # 执行工具
-                                    result = tools.execute_tool(tool_name, tool_input)
+                                    # 使用tool_router执行工具
+                                    exec_result = tool_router.execute_tool(
+                                        tool_name=tool_name,
+                                        tool_input=tool_input,
+                                        username=username,
+                                        session_id=session_id,
+                                        auto_approve=False
+                                    )
+
+                                    # 检查是否需要权限
+                                    if exec_result['status'] == 'pending_permission':
+                                        # 发送权限请求
+                                        yield f"data: {json.dumps({'type': 'permission_required', 'log_id': exec_result['log_id'], 'preview': exec_result['preview']})}\n\n"
+                                        # 发送完成信号
+                                        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+                                        # 保存当前响应
+                                        if assistant_response:
+                                            database.save_message(username, 'assistant', assistant_response, current_model, session_id)
+                                        return
+
+                                    # 获取执行结果
+                                    if exec_result['status'] == 'success':
+                                        result = exec_result['result']
+                                    else:
+                                        result = {'error': exec_result.get('error', '执行失败')}
 
                                     # 发送工具结果
                                     yield f"data: {json.dumps({'type': 'tool_result', 'name': tool_name, 'result': result})}\n\n"
@@ -383,7 +445,7 @@ def chat():
                                         model=model_id,
                                         max_tokens=4096,
                                         messages=messages,
-                                        tools=tools.TOOLS,
+                                        tools=all_tools,
                                         system=system_prompt.get_system_prompt(),
                                         stream=True
                                     )
@@ -492,5 +554,239 @@ def handle_command(command):
 
     return None
 
+# MCP Configuration Endpoints
+
+@app.route('/mcp-config')
+@login_required
+def mcp_config():
+    """MCP配置页面"""
+    return render_template('mcp_config.html')
+
+@app.route('/api/mcp/servers', methods=['GET', 'POST'])
+@login_required
+def mcp_servers():
+    """获取或添加MCP服务器"""
+    try:
+        if request.method == 'GET':
+            servers = mcp_database.get_mcp_servers(enabled_only=False)
+            # 获取每个服务器的状态
+            for server in servers:
+                status = mcp_database.get_server_status(server['id'])
+                server['status'] = status if status else {'status': 'unknown'}
+            return jsonify({'success': True, 'servers': servers})
+
+        elif request.method == 'POST':
+            data = request.json
+            server_id = mcp_database.add_mcp_server(
+                name=data['name'],
+                server_type=data['server_type'],
+                command=data.get('command'),
+                args=data.get('args'),
+                env=data.get('env'),
+                url=data.get('url'),
+                config=data.get('config')
+            )
+            return jsonify({'success': True, 'server_id': server_id})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/mcp/servers/<int:server_id>', methods=['GET', 'PUT', 'DELETE'])
+@login_required
+def mcp_server_detail(server_id):
+    """获取、更新或删除MCP服务器"""
+    try:
+        if request.method == 'GET':
+            server = mcp_database.get_mcp_server(server_id)
+            if not server:
+                return jsonify({'error': '服务器未找到'}), 404
+            status = mcp_database.get_server_status(server_id)
+            server['status'] = status if status else {'status': 'unknown'}
+            return jsonify({'success': True, 'server': server})
+
+        elif request.method == 'PUT':
+            data = request.json
+            success = mcp_database.update_mcp_server(server_id, **data)
+            if success:
+                return jsonify({'success': True})
+            return jsonify({'error': '更新失败'}), 500
+
+        elif request.method == 'DELETE':
+            success = mcp_database.delete_mcp_server(server_id)
+            if success:
+                return jsonify({'success': True})
+            return jsonify({'error': '删除失败'}), 500
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/mcp/servers/<int:server_id>/credentials', methods=['POST'])
+@login_required
+def mcp_server_credentials(server_id):
+    """添加或更新服务器凭证"""
+    try:
+        data = request.json
+        credential_id = mcp_database.save_credential(
+            server_id=server_id,
+            credential_type=data['credential_type'],
+            credential_key=data['credential_key'],
+            credential_value=data['credential_value']
+        )
+        return jsonify({'success': True, 'credential_id': credential_id})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/mcp/servers/<int:server_id>/status', methods=['GET'])
+@login_required
+def mcp_server_status(server_id):
+    """获取服务器状态"""
+    try:
+        status = mcp_database.get_server_status(server_id)
+        if status:
+            return jsonify({'success': True, 'status': status})
+        return jsonify({'success': True, 'status': {'status': 'unknown'}})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/mcp/servers/<int:server_id>/test', methods=['POST'])
+@login_required
+def mcp_server_test(server_id):
+    """测试服务器连接"""
+    try:
+        # 尝试重启服务器来测试连接
+        success = mcp_manager.restart_server(server_id)
+        if success:
+            return jsonify({'success': True, 'message': '连接成功'})
+        return jsonify({'success': False, 'message': '连接失败'}), 500
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/mcp/servers/<int:server_id>/restart', methods=['POST'])
+@login_required
+def mcp_server_restart(server_id):
+    """重启服务器"""
+    try:
+        success = mcp_manager.restart_server(server_id)
+        if success:
+            return jsonify({'success': True, 'message': '服务器已重启'})
+        return jsonify({'success': False, 'message': '重启失败'}), 500
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Operation Log Endpoints
+
+@app.route('/api/operations/logs', methods=['GET'])
+@login_required
+def operations_logs():
+    """获取操作日志"""
+    try:
+        username = session.get('username')
+        session_id = session.get('session_id')
+        status = request.args.get('status')
+        limit = request.args.get('limit', 100, type=int)
+
+        logs = get_operation_logs(
+            username=username,
+            session_id=session_id,
+            status=status,
+            limit=limit
+        )
+
+        return jsonify({'success': True, 'logs': logs})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/operations/pending', methods=['GET'])
+@login_required
+def operations_pending():
+    """获取待审批操作"""
+    try:
+        username = session.get('username')
+        session_id = session.get('session_id')
+
+        pending = get_pending_operations(username=username, session_id=session_id)
+
+        return jsonify({'success': True, 'pending': pending})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/operations/<int:log_id>/approve', methods=['POST'])
+@login_required
+def operations_approve(log_id):
+    """批准操作"""
+    try:
+        grant_permission(log_id)
+
+        # 执行已批准的操作
+        result = tool_router.execute_approved_operation(log_id)
+
+        return jsonify({'success': True, 'result': result})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/operations/<int:log_id>/reject', methods=['POST'])
+@login_required
+def operations_reject(log_id):
+    """拒绝操作"""
+    try:
+        data = request.json
+        reason = data.get('reason', '用户拒绝')
+
+        reject_permission(log_id, reason)
+
+        return jsonify({'success': True})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/operations/stats', methods=['GET'])
+@login_required
+def operations_stats():
+    """获取操作统计"""
+    try:
+        username = session.get('username')
+        session_id = session.get('session_id')
+
+        stats = get_operation_stats(username=username, session_id=session_id)
+
+        return jsonify({'success': True, 'stats': stats})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/operations/stream')
+@login_required
+def operations_stream():
+    """SSE流式推送操作日志"""
+    def generate():
+        username = session.get('username')
+        session_id = session.get('session_id')
+
+        # 发送初始数据
+        logs = get_operation_logs(username=username, session_id=session_id, limit=10)
+        yield f"data: {json.dumps({'type': 'initial', 'logs': logs})}\n\n"
+
+        # 保持连接并定期发送更新
+        import time
+        while True:
+            time.sleep(2)  # 每2秒检查一次
+            logs = get_operation_logs(username=username, session_id=session_id, limit=10)
+            yield f"data: {json.dumps({'type': 'update', 'logs': logs})}\n\n"
+
+    return Response(generate(), mimetype='text/event-stream')
+
 if __name__ == '__main__':
+    # 启动时初始化MCP服务器
+    try:
+        mcp_manager.start_all_servers()
+    except Exception as e:
+        print(f"Warning: Failed to start MCP servers: {e}")
+
     app.run(host='0.0.0.0', port=5000, debug=True)

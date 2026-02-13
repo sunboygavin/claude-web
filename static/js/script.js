@@ -46,6 +46,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 历史按钮
     document.getElementById('historyBtn').addEventListener('click', openHistoryModal);
 
+    // 操作日志按钮
+    document.getElementById('operationsBtn').addEventListener('click', openOperationsModal);
+
     // 模型选择
     document.getElementById('modelSelector').addEventListener('change', changeModel);
 });
@@ -283,9 +286,7 @@ function addSystemMessage(content) {
 
 // 滚动到底部
 function scrollToBottom() {
-    setTimeout(() => {
-        scrollToBottom();
-    }, 100);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
 }
 
 // 自动调整输入框高度
@@ -402,6 +403,7 @@ async function sendMessage() {
 
         let fullResponse = '';
         let currentTextDiv = null;
+        let toolCalls = []; // 记录工具调用
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -417,6 +419,7 @@ async function sendMessage() {
                 if (line.startsWith('data: ')) {
                     try {
                         const data = JSON.parse(line.slice(6));
+                        console.log('Received SSE data:', data); // 调试日志
 
                         if (data.type === 'text') {
                             // 文本内容
@@ -440,12 +443,27 @@ async function sendMessage() {
                             messageDiv.appendChild(toolDiv);
                             scrollToBottom();
 
+                            // 记录工具调用
+                            toolCalls.push({
+                                type: 'tool_use',
+                                name: data.name,
+                                input: data.input
+                            });
+
                         } else if (data.type === 'tool_result') {
                             // 工具结果
                             const resultDiv = document.createElement('div');
                             resultDiv.className = 'tool-result';
 
                             let resultContent = '';
+
+                            // 检查是否是用户问题
+                            if (data.result.requires_user_input && data.result.questions) {
+                                // 显示用户问题界面
+                                showUserQuestions(data.result.questions, messageDiv);
+                                continue; // 跳过正常的结果显示
+                            }
+
                             if (data.result.success) {
                                 resultContent = data.result.output || data.result.content || data.result.message || JSON.stringify(data.result, null, 2);
                             } else {
@@ -459,8 +477,44 @@ async function sendMessage() {
                             messageDiv.appendChild(resultDiv);
                             scrollToBottom();
 
+                            // 记录工具结果
+                            toolCalls.push({
+                                type: 'tool_result',
+                                name: data.name,
+                                result: data.result
+                            });
+
                             // 重置文本容器，为后续文本做准备
                             currentTextDiv = null;
+
+                        } else if (data.type === 'permission_required') {
+                            // 需要权限审批
+                            console.log('Permission required:', data); // 调试日志
+
+                            const permissionDiv = document.createElement('div');
+                            permissionDiv.className = 'permission-request';
+                            permissionDiv.id = `permission-${data.log_id}`;
+
+                            // 转义HTML以防止XSS，但保留换行
+                            const previewText = (data.preview || '此操作需要您的批准')
+                                .replace(/&/g, '&amp;')
+                                .replace(/</g, '&lt;')
+                                .replace(/>/g, '&gt;')
+                                .replace(/\n/g, '<br>');
+
+                            permissionDiv.innerHTML = `
+                                <div class="permission-header">⚠️ 需要权限审批</div>
+                                <div class="permission-preview">${previewText}</div>
+                                <div class="permission-actions">
+                                    <button class="approve-btn" onclick="approvePermission(${data.log_id})">批准</button>
+                                    <button class="reject-btn" onclick="rejectPermission(${data.log_id})">拒绝</button>
+                                </div>
+                            `;
+                            messageDiv.appendChild(permissionDiv);
+                            scrollToBottom();
+
+                            // 确保权限请求可见
+                            console.log('Permission div added to DOM:', permissionDiv);
 
                         } else if (data.type === 'error') {
                             const errorDiv = document.createElement('div');
@@ -475,7 +529,34 @@ async function sendMessage() {
             }
         }
 
-        conversationHistory.push({ role: 'assistant', content: fullResponse });
+        const assistantMessage = {
+            role: 'assistant',
+            content: fullResponse,
+            html: messageDiv.innerHTML, // 保存完整HTML
+            toolCalls: toolCalls // 保存工具调用信息
+        };
+
+        conversationHistory.push(assistantMessage);
+
+        // 保存到数据库
+        try {
+            await fetch('/api/save-message', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    role: 'assistant',
+                    content: fullResponse,
+                    metadata: {
+                        html: messageDiv.innerHTML,
+                        toolCalls: toolCalls
+                    }
+                })
+            });
+        } catch (error) {
+            console.error('保存消息失败:', error);
+        }
 
     } catch (error) {
         removeTypingIndicator();
@@ -562,17 +643,25 @@ async function loadHistoryFromDB() {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `message ${msg.role}`;
 
-                const contentDiv = document.createElement('div');
-                contentDiv.className = 'message-content';
-                contentDiv.textContent = msg.content;
+                // 如果有保存的HTML（包含工具调用），使用HTML
+                if (msg.metadata && msg.metadata.html) {
+                    messageDiv.innerHTML = msg.metadata.html;
+                } else {
+                    // 否则使用纯文本
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'message-content';
+                    contentDiv.textContent = msg.content;
+                    messageDiv.appendChild(contentDiv);
+                }
 
-                messageDiv.appendChild(contentDiv);
                 chatContainer.appendChild(messageDiv);
 
                 // 添加到内存中的历史记录
                 conversationHistory.push({
                     role: msg.role,
-                    content: msg.content
+                    content: msg.content,
+                    html: msg.metadata?.html,
+                    toolCalls: msg.metadata?.toolCalls
                 });
             });
 
@@ -729,4 +818,354 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// 操作日志相关功能
+let currentOperationsTab = 'all';
+
+// 打开操作日志对话框
+async function openOperationsModal() {
+    document.getElementById('operationsModal').style.display = 'flex';
+    await loadOperations('all');
+}
+
+// 关闭操作日志对话框
+function closeOperationsModal() {
+    document.getElementById('operationsModal').style.display = 'none';
+}
+
+// 切换操作日志标签
+async function switchOperationsTab(tab) {
+    currentOperationsTab = tab;
+
+    // 更新标签样式
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    event.target.classList.add('active');
+
+    await loadOperations(tab);
+}
+
+// 加载操作日志
+async function loadOperations(status) {
+    const operationsList = document.getElementById('operationsList');
+    operationsList.innerHTML = '<div class="loading">加载中...</div>';
+
+    try {
+        let url = '/api/operations/logs?limit=50';
+        if (status !== 'all') {
+            url += `&status=${status}`;
+        }
+
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            if (data.logs.length === 0) {
+                operationsList.innerHTML = '<div class="no-results">暂无操作记录</div>';
+                return;
+            }
+
+            operationsList.innerHTML = '';
+
+            data.logs.forEach(log => {
+                const operationItem = document.createElement('div');
+                operationItem.className = 'operation-item';
+
+                const statusClass = log.status.toLowerCase();
+                const statusText = {
+                    'pending': '待审批',
+                    'approved': '已批准',
+                    'rejected': '已拒绝',
+                    'executed': '已执行'
+                }[log.status.toLowerCase()] || log.status;
+
+                let actionsHtml = '';
+                if (log.status.toLowerCase() === 'pending') {
+                    actionsHtml = `
+                        <div class="operation-actions">
+                            <button class="approve-btn" onclick="approveOperation(${log.id})">批准</button>
+                            <button class="reject-btn" onclick="rejectOperation(${log.id})">拒绝</button>
+                        </div>
+                    `;
+                }
+
+                operationItem.innerHTML = `
+                    <div class="operation-header">
+                        <span class="operation-tool">${log.tool_name}</span>
+                        <span class="operation-status ${statusClass}">${statusText}</span>
+                    </div>
+                    <div class="operation-preview">${JSON.stringify(log.input_data || {}, null, 2)}</div>
+                    <div class="operation-time">${log.created_at || log.timestamp}</div>
+                    ${actionsHtml}
+                `;
+
+                operationsList.appendChild(operationItem);
+            });
+        } else {
+            operationsList.innerHTML = `<div class="error">加载失败: ${data.error || '未知错误'}</div>`;
+        }
+    } catch (error) {
+        operationsList.innerHTML = `<div class="error">加载失败: ${error.message}</div>`;
+    }
+}
+
+// 批准操作
+async function approveOperation(logId) {
+    if (!confirm('确定要批准此操作吗？')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/operations/${logId}/approve`, {
+            method: 'POST'
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            addSystemMessage('✓ 操作已批准并执行');
+            await loadOperations(currentOperationsTab);
+        } else {
+            alert(`批准失败: ${data.error || '未知错误'}`);
+        }
+    } catch (error) {
+        alert(`批准失败: ${error.message}`);
+    }
+}
+
+// 批准权限
+async function approvePermission(logId) {
+    const permissionDiv = document.getElementById(`permission-${logId}`);
+    if (!permissionDiv) return;
+
+    try {
+        const response = await fetch(`/api/operations/${logId}/approve`, {
+            method: 'POST'
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            // 更新UI显示已批准
+            permissionDiv.innerHTML = `
+                <div class="permission-header">✅ 已批准</div>
+                <div class="permission-preview">操作已执行</div>
+            `;
+            permissionDiv.className = 'permission-approved';
+
+            // 显示执行结果
+            if (data.result) {
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'tool-result';
+                resultDiv.innerHTML = `
+                    <div class="tool-result-header">📋 执行结果</div>
+                    <pre class="tool-result-content">${JSON.stringify(data.result, null, 2)}</pre>
+                `;
+                permissionDiv.parentElement.appendChild(resultDiv);
+            }
+            scrollToBottom();
+        } else {
+            alert(`批准失败: ${data.error || '未知错误'}`);
+        }
+    } catch (error) {
+        alert(`批准失败: ${error.message}`);
+    }
+}
+
+// 拒绝权限
+async function rejectPermission(logId) {
+    const permissionDiv = document.getElementById(`permission-${logId}`);
+    if (!permissionDiv) return;
+
+    const reason = prompt('请输入拒绝原因（可选）：');
+    if (reason === null) {
+        return; // 用户取消
+    }
+
+    try {
+        const response = await fetch(`/api/operations/${logId}/reject`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ reason: reason || '用户拒绝' })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+            // 更新UI显示已拒绝
+            permissionDiv.innerHTML = `
+                <div class="permission-header">❌ 已拒绝</div>
+                <div class="permission-preview">${reason || '用户拒绝'}</div>
+            `;
+            permissionDiv.className = 'permission-rejected';
+            scrollToBottom();
+        } else {
+            alert(`拒绝失败: ${data.error || '未知错误'}`);
+        }
+    } catch (error) {
+        alert(`拒绝失败: ${error.message}`);
+    }
+}
+
+// 显示用户问题
+function showUserQuestions(questions, containerDiv) {
+    const questionDiv = document.createElement('div');
+    questionDiv.className = 'user-questions';
+
+    questions.forEach((q, qIndex) => {
+        const questionBlock = document.createElement('div');
+        questionBlock.className = 'question-block';
+
+        const questionHeader = document.createElement('div');
+        questionHeader.className = 'question-header';
+        questionHeader.innerHTML = `
+            <span class="question-tag">${q.header}</span>
+            <span class="question-text">${q.question}</span>
+        `;
+        questionBlock.appendChild(questionHeader);
+
+        const optionsContainer = document.createElement('div');
+        optionsContainer.className = 'question-options';
+
+        q.options.forEach((option, oIndex) => {
+            const optionDiv = document.createElement('div');
+            optionDiv.className = 'question-option';
+
+            const inputType = q.multiSelect ? 'checkbox' : 'radio';
+            const inputName = `question_${qIndex}`;
+            const inputId = `q${qIndex}_o${oIndex}`;
+
+            optionDiv.innerHTML = `
+                <input type="${inputType}" name="${inputName}" id="${inputId}" value="${option.label}">
+                <label for="${inputId}">
+                    <div class="option-label">${option.label}</div>
+                    <div class="option-description">${option.description}</div>
+                </label>
+            `;
+
+            optionsContainer.appendChild(optionDiv);
+        });
+
+        // 添加"其他"选项
+        const otherDiv = document.createElement('div');
+        otherDiv.className = 'question-option';
+        const inputType = q.multiSelect ? 'checkbox' : 'radio';
+        const inputName = `question_${qIndex}`;
+        const otherId = `q${qIndex}_other`;
+
+        otherDiv.innerHTML = `
+            <input type="${inputType}" name="${inputName}" id="${otherId}" value="__other__">
+            <label for="${otherId}">
+                <div class="option-label">其他</div>
+                <div class="option-description">自定义输入</div>
+            </label>
+            <input type="text" class="other-input" id="${otherId}_text" placeholder="请输入..." style="display:none; margin-top: 8px; width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+        `;
+
+        optionsContainer.appendChild(otherDiv);
+
+        // 监听"其他"选项的选择
+        setTimeout(() => {
+            const otherCheckbox = document.getElementById(otherId);
+            const otherInput = document.getElementById(`${otherId}_text`);
+
+            if (otherCheckbox && otherInput) {
+                otherCheckbox.addEventListener('change', function() {
+                    otherInput.style.display = this.checked ? 'block' : 'none';
+                    if (this.checked) {
+                        otherInput.focus();
+                    }
+                });
+            }
+        }, 0);
+
+        questionBlock.appendChild(optionsContainer);
+        questionDiv.appendChild(questionBlock);
+    });
+
+    // 添加提交按钮
+    const submitButton = document.createElement('button');
+    submitButton.className = 'question-submit-btn';
+    submitButton.textContent = '提交答案';
+    submitButton.onclick = () => submitUserAnswers(questions, questionDiv);
+
+    questionDiv.appendChild(submitButton);
+    containerDiv.appendChild(questionDiv);
+    scrollToBottom();
+}
+
+// 提交用户答案
+async function submitUserAnswers(questions, questionDiv) {
+    const answers = {};
+
+    questions.forEach((q, qIndex) => {
+        const inputName = `question_${qIndex}`;
+
+        if (q.multiSelect) {
+            // 多选
+            const checked = document.querySelectorAll(`input[name="${inputName}"]:checked`);
+            const values = [];
+            checked.forEach(input => {
+                if (input.value === '__other__') {
+                    const otherText = document.getElementById(`${input.id}_text`).value.trim();
+                    if (otherText) {
+                        values.push(otherText);
+                    }
+                } else {
+                    values.push(input.value);
+                }
+            });
+            answers[q.header] = values.join(', ');
+        } else {
+            // 单选
+            const selected = document.querySelector(`input[name="${inputName}"]:checked`);
+            if (selected) {
+                if (selected.value === '__other__') {
+                    const otherText = document.getElementById(`${selected.id}_text`).value.trim();
+                    answers[q.header] = otherText || '其他';
+                } else {
+                    answers[q.header] = selected.value;
+                }
+            }
+        }
+    });
+
+    // 显示已提交的答案
+    questionDiv.innerHTML = `
+        <div class="question-answered">
+            <div class="question-answered-header">✅ 已提交答案</div>
+            <div class="question-answered-content">
+                ${Object.entries(answers).map(([key, value]) =>
+                    `<div><strong>${key}:</strong> ${value}</div>`
+                ).join('')}
+            </div>
+        </div>
+    `;
+
+    // 将答案发送给后端继续对话
+    // 这里需要将答案作为用户消息发送
+    const answerText = Object.entries(answers)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join('\n');
+
+    // 添加到对话历史
+    conversationHistory.push({
+        role: 'user',
+        content: `[用户回答]\n${answerText}`
+    });
+
+    // 继续对话
+    await continueConversationWithAnswers(answers);
+}
+
+// 继续对话（带用户答案）
+async function continueConversationWithAnswers(answers) {
+    // 这里可以实现继续对话的逻辑
+    // 暂时只是显示答案已提交
+    addSystemMessage('✓ 答案已提交，Claude 将继续处理');
+}
+
 

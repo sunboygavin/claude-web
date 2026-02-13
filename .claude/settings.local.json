@@ -32,7 +32,11 @@
       "Bash(git branch:*)",
       "Bash(git remote:*)",
       "Bash(git remote add:*)",
-      "Bash(ssh:*)"
+      "Bash(ssh:*)",
+      "Bash(git push:*)",
+      "Bash(find:*)",
+      "Bash(pkill:*)",
+      "Bash(bash:*)"
     ]
   }
 }
