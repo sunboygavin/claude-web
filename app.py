@@ -21,6 +21,8 @@ from operation_logger import (
     get_operation_stats
 )
 import mcp_database
+import skills_database
+import memory_database
 import threading
 
 app = Flask(__name__)
@@ -35,6 +37,19 @@ ANTHROPIC_AUTH_TOKEN = config.ANTHROPIC_AUTH_TOKEN
 init_encryption(config.SECRET_KEY)
 mcp_manager = get_mcp_manager()
 tool_router = get_tool_router()
+
+# 初始化Skills数据库
+try:
+    skills_database.init_skills_db()
+    skills_database.load_predefined_skills()
+except Exception as e:
+    print(f"Warning: Failed to initialize skills: {e}")
+
+# 初始化Memory数据库
+try:
+    memory_database.init_memory_db()
+except Exception as e:
+    print(f"Warning: Failed to initialize memory: {e}")
 
 # 登录验证装饰器
 def login_required(f):
@@ -186,7 +201,10 @@ def model_operations():
                 'model_info': {
                     'sonnet': 'Claude Sonnet 4.5 - 平衡性能和速度',
                     'opus': 'Claude Opus 4.6 - 最强大的模型',
-                    'haiku': 'Claude Haiku 3.5 - 最快速的模型'
+                    'haiku': 'Claude Haiku 3.5 - 最快速的模型',
+                    'doubao': '豆包大模型 - 中文优化',
+                    'kimi': 'Kimi - 代码优化模型',
+                    'zhipu': '智谱AI - 高效推理'
                 }
             })
         elif request.method == 'POST':
@@ -497,7 +515,7 @@ def handle_command(command):
 ## 可用命令：
 
 - **/help** - 显示此帮助信息
-- **/model [sonnet|opus|haiku]** - 切换模型或查看当前模型
+- **/model [sonnet|opus|haiku|doubao|kimi|zhipu]** - 切换模型或查看当前模型
 - **/clear** - 清除对话历史
 - **/export** - 导出对话历史
 - **/tools** - 查看可用工具列表
@@ -528,7 +546,7 @@ def handle_command(command):
                 session['model'] = model
                 return {'type': 'command', 'content': f'✓ 已切换到 {model.upper()} 模型'}
             else:
-                return {'type': 'command', 'content': f'✗ 无效的模型: {model}\n可用模型: sonnet, opus, haiku'}
+                return {'type': 'command', 'content': f'✗ 无效的模型: {model}\n可用模型: sonnet, opus, haiku, doubao, kimi, zhipu'}
         else:
             current = session.get('model', config.DEFAULT_MODEL)
             return {'type': 'command', 'content': f'当前模型: {current.upper()}\n可用模型: sonnet, opus, haiku'}
@@ -1103,6 +1121,205 @@ def n8n_proxy(path=''):
         )
     except Exception as e:
         print(f"n8n proxy error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+# Skills Configuration Endpoints
+
+@app.route('/skills-config')
+@login_required
+def skills_config():
+    """Skills配置页面"""
+    return render_template('skills_config.html')
+
+@app.route('/api/skills/skills', methods=['GET', 'POST'])
+@login_required
+def skills_list():
+    """获取或添加Skills"""
+    try:
+        if request.method == 'GET':
+            skills = skills_database.get_skills(enabled_only=False)
+            return jsonify({'success': True, 'skills': skills})
+
+        elif request.method == 'POST':
+            data = request.json
+            skill_id = skills_database.add_skill(
+                name=data['name'],
+                description=data.get('description', ''),
+                skill_type=data['skill_type'],
+                code=data.get('code', ''),
+                config=data.get('config')
+            )
+            return jsonify({'success': True, 'skill_id': skill_id})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/skills/skills/<int:skill_id>', methods=['GET', 'PUT', 'DELETE'])
+@login_required
+def skill_detail(skill_id):
+    """获取、更新或删除Skill"""
+    try:
+        if request.method == 'GET':
+            skill = skills_database.get_skill(skill_id)
+            if not skill:
+                return jsonify({'error': 'Skill未找到'}), 404
+            return jsonify({'success': True, 'skill': skill})
+
+        elif request.method == 'PUT':
+            data = request.json
+            success = skills_database.update_skill(skill_id, **data)
+            if success:
+                return jsonify({'success': True})
+            return jsonify({'error': '更新失败'}), 500
+
+        elif request.method == 'DELETE':
+            success = skills_database.delete_skill(skill_id)
+            if success:
+                return jsonify({'success': True})
+            return jsonify({'error': '删除失败'}), 500
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/skills/skills/<int:skill_id>/test', methods=['POST'])
+@login_required
+def skill_test(skill_id):
+    """测试Skill"""
+    try:
+        skill = skills_database.get_skill(skill_id)
+        if not skill:
+            return jsonify({'error': 'Skill未找到'}), 404
+
+        data = request.json
+        input_data = data.get('input', {})
+
+        # 安全地执行技能代码
+        import traceback
+        namespace = {}
+        try:
+            exec(skill['code'], namespace)
+            skill_obj = namespace.get('skill')
+            if skill_obj and hasattr(skill_obj, 'execute'):
+                result = skill_obj.execute(input_data)
+                return jsonify({'success': True, 'result': result})
+            else:
+                return jsonify({'error': 'Skill对象或execute方法未找到'}), 400
+        except Exception as e:
+            return jsonify({'error': f'执行错误: {str(e)}\n{traceback.format_exc()}'}), 500
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Memory Configuration Endpoints
+
+@app.route('/memory-config')
+@login_required
+def memory_config():
+    """Memory配置页面"""
+    return render_template('memory_config.html')
+
+@app.route('/api/memory/memories', methods=['GET', 'POST'])
+@login_required
+def memory_list():
+    """获取或添加Memory"""
+    try:
+        username = session.get('username')
+
+        if request.method == 'GET':
+            memory_type = request.args.get('memory_type')
+            tag = request.args.get('tag')
+
+            if tag:
+                memories = memory_database.get_memory_by_tag(username, tag)
+            else:
+                memories = memory_database.get_memory_entries(
+                    username,
+                    memory_type=memory_type
+                )
+            return jsonify({'success': True, 'memories': memories})
+
+        elif request.method == 'POST':
+            data = request.json
+            memory_id = memory_database.add_memory_entry(
+                username=username,
+                memory_type=data.get('memory_type', 'note'),
+                content=data['content'],
+                title=data.get('title'),
+                session_id=session.get('session_id'),
+                metadata=data.get('metadata'),
+                tags=data.get('tags'),
+                importance=data.get('importance', 1)
+            )
+            return jsonify({'success': True, 'memory_id': memory_id})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/memory/memories/<int:memory_id>', methods=['GET', 'PUT', 'DELETE'])
+@login_required
+def memory_detail(memory_id):
+    """获取、更新或删除Memory"""
+    try:
+        username = session.get('username')
+
+        if request.method == 'GET':
+            memory = memory_database.get_memory_entry(memory_id, username)
+            if not memory:
+                return jsonify({'error': 'Memory未找到'}), 404
+            return jsonify({'success': True, 'memory': memory})
+
+        elif request.method == 'PUT':
+            data = request.json
+            success = memory_database.update_memory_entry(memory_id, username, **data)
+            if success:
+                return jsonify({'success': True})
+            return jsonify({'error': '更新失败'}), 500
+
+        elif request.method == 'DELETE':
+            success = memory_database.delete_memory_entry(memory_id, username)
+            if success:
+                return jsonify({'success': True})
+            return jsonify({'error': '删除失败'}), 500
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/memory/tags', methods=['GET'])
+@login_required
+def memory_tags():
+    """获取所有标签"""
+    try:
+        username = session.get('username')
+        tags = memory_database.get_memory_tags(username)
+        return jsonify({'success': True, 'tags': tags})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/memory/search', methods=['POST'])
+@login_required
+def memory_search():
+    """搜索记忆"""
+    try:
+        username = session.get('username')
+        data = request.json
+        query = data.get('query', '')
+        memories = memory_database.search_memory_entries(username, query)
+        return jsonify({'success': True, 'memories': memories})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/memory/export/obsidian', methods=['POST'])
+@login_required
+def memory_export_obsidian():
+    """导出为Obsidian格式"""
+    try:
+        username = session.get('username')
+        data = request.json or {}
+        group_by = data.get('group_by', 'date')
+
+        result = memory_database.export_to_obsidian(username, group_by=group_by)
+        return jsonify(result)
+    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':

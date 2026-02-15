@@ -30,3 +30,6 @@ config.py
 # OS
 .DS_Store
 Thumbs.db
+
+# Workspace
+workspace/

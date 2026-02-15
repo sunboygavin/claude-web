@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP 配置 - Claude 网页版</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mcp.css') }}">
+</head>
+<body>
+    <div class="mcp-layout">
+        <!-- 顶部导航 -->
+        <div class="mcp-header">
+            <h1>MCP 服务器配置</h1>
+            <div class="header-actions">
+                <a href="/" class="btn-back">返回聊天</a>
+                <a href="/memory-config" class="btn-memory">🧠 记忆</a>
+                <a href="/skills-config" class="btn-skills">Skills 管理</a>
+                <a href="/logout" class="logout-btn">退出</a>
+            </div>
+        </div>
+
+        <!-- 主内容区 -->
+        <div class="mcp-main">
+            <!-- 左侧服务器列表 -->
+            <div class="mcp-sidebar">
+                <div class="sidebar-header">
+                    <h2>服务器列表</h2>
+                    <button class="btn-add" onclick="showAddServerModal()">+ 添加服务器</button>
+                </div>
+                <div class="server-list" id="serverList">
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+
+            <!-- 右侧服务器详情 -->
+            <div class="mcp-content">
+                <div class="mcp-welcome" id="mcpWelcome">
+                    <h2>👋 欢迎使用 MCP 配置</h2>
+                    <p>选择左侧的服务器查看详情，或点击"添加服务器"配置新的 MCP 服务器。</p>
+                    <div class="preset-servers">
+                        <h3>快速添加预设服务器：</h3>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" onclick="addPresetServer('github')">
+                                <span class="preset-icon">🐙</span>
+                                <span class="preset-name">GitHub</span>
+                            </button>
+                            <button class="preset-btn" onclick="addPresetServer('filesystem')">
+                                <span class="preset-icon">📁</span>
+                                <span class="preset-name">文件系统</span>
+                            </button>
+                            <button class="preset-btn" onclick="addPresetServer('git')">
+                                <span class="preset-icon">📊</span>
+                                <span class="preset-name">Git</span>
+                            </button>
+                            <button class="preset-btn" onclick="addPresetServer('fetch')">
+                                <span class="preset-icon">🌐</span>
+                                <span class="preset-name">Fetch</span>
+                            </button>
+                            <button class="preset-btn" onclick="addPresetServer('notion')">
+                                <span class="preset-icon">📝</span>
+                                <span class="preset-name">Notion</span>
+                            </button>
+                            <button class="preset-btn" onclick="addPresetServer('obsidian')">
+                                <span class="preset-icon">💎</span>
+                                <span class="preset-name">Obsidian</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mcp-detail" id="mcpDetail" style="display: none;">
+                    <div class="detail-header">
+                        <h3 id="serverName">服务器名称</h3>
+                        <div class="detail-actions">
+                            <button class="btn-test" onclick="testServer()">测试连接</button>
+                            <button class="btn-restart" onclick="restartServer()">重启</button>
+                            <button class="btn-edit" onclick="editServer()">编辑</button>
+                            <button class="btn-delete" onclick="deleteServer()">删除</button>
+                        </div>
+                    </div>
+
+                    <div class="detail-status" id="serverStatus">
+                        <span class="status-badge status-unknown">未知</span>
+                    </div>
+
+                    <div class="detail-info">
+                        <div class="info-section">
+                            <h4>基本信息</h4>
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <label>类型</label>
+                                    <span id="serverType">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>命令</label>
+                                    <span id="serverCommand">-</span>
+                                </div>
+                                <div class="info-item">
+                                    <label>URL</label>
+                                    <span id="serverUrl">-</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="info-section" id="toolsSection" style="display: none;">
+                            <h4>可用工具</h4>
+                            <div class="tools-list" id="toolsList"></div>
+                        </div>
+
+                        <div class="info-section" id="errorSection" style="display: none;">
+                            <h4>错误信息</h4>
+                            <div class="error-box" id="errorMessage"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加/编辑服务器模态框 -->
+    <div class="mcp-modal" id="serverModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">添加服务器</h3>
+                <button class="close-modal" onclick="closeServerModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="serverForm">
+                    <input type="hidden" id="serverId">
+
+                    <div class="form-group">
+                        <label>服务器名称 *</label>
+                        <input type="text" id="inputName" placeholder="例如：GitHub" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>服务器类型 *</label>
+                        <select id="inputType" required onchange="onTypeChange()">
+                            <option value="stdio">stdio (本地进程)</option>
+                            <option value="sse">SSE (Server-Sent Events)</option>
+                            <option value="http">HTTP</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="commandGroup">
+                        <label>命令 *</label>
+                        <input type="text" id="inputCommand" placeholder="例如：npx">
+                    </div>
+
+                    <div class="form-group" id="argsGroup">
+                        <label>参数 (JSON 数组)</label>
+                        <textarea id="inputArgs" placeholder='例如：["-g", "@modelcontextprotocol/server-github"]'></textarea>
+                    </div>
+
+                    <div class="form-group" id="envGroup">
+                        <label>环境变量 (JSON 对象)</label>
+                        <textarea id="inputEnv" placeholder='例如：{"GITHUB_PERSONAL_ACCESS_TOKEN": "your-token"}'></textarea>
+                    </div>
+
+                    <div class="form-group" id="urlGroup" style="display: none;">
+                        <label>URL *</label>
+                        <input type="text" id="inputUrl" placeholder="例如：https://example.com/mcp">
+                    </div>
+
+                    <div class="form-group">
+                        <label>配置 (JSON 对象)</label>
+                        <textarea id="inputConfig" placeholder='可选的配置 JSON'></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="inputEnabled" checked>
+                            <span>启用服务器</span>
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeServerModal()">取消</button>
+                <button class="btn-save" onclick="saveServer()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 凭证模态框 -->
+    <div class="mcp-modal" id="credentialModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>添加凭证</h3>
+                <button class="close-modal" onclick="closeCredentialModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="credentialForm">
+                    <input type="hidden" id="credServerId">
+
+                    <div class="form-group">
+                        <label>凭证类型</label>
+                        <input type="text" id="credType" placeholder="例如：env">
+                    </div>
+
+                    <div class="form-group">
+                        <label>密钥 *</label>
+                        <input type="text" id="credKey" placeholder="例如：GITHUB_PERSONAL_ACCESS_TOKEN" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>值 *</label>
+                        <input type="password" id="credValue" placeholder="输入凭证值" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeCredentialModal()">取消</button>
+                <button class="btn-save" onclick="saveCredential()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/mcp.js') }}"></script>
+</body>
+</html>

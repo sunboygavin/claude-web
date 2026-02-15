@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>记忆管理 - Claude 网页版</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/memory.css') }}">
+</head>
+<body>
+    <div class="memory-layout">
+        <!-- 顶部导航 -->
+        <div class="memory-header">
+            <h1>🧠 对话记忆</h1>
+            <div class="header-actions">
+                <a href="/" class="btn-back">返回聊天</a>
+                <a href="/skills-config" class="btn-skills">Skills 管理</a>
+                <a href="/mcp-config" class="btn-mcp">MCP 配置</a>
+                <a href="/logout" class="logout-btn">退出</a>
+            </div>
+        </div>
+
+        <!-- 主内容区 -->
+        <div class="memory-main">
+            <!-- 左侧过滤和搜索 -->
+            <div class="memory-sidebar">
+                <div class="search-section">
+                    <input type="text" id="memorySearch" placeholder="搜索记忆..."
+                           class="search-input" onkeyup="searchMemories()">
+                </div>
+
+                <div class="filter-section">
+                    <h3>类型筛选</h3>
+                    <div class="filter-options">
+                        <label class="filter-option">
+                            <input type="radio" name="typeFilter" value="" checked onchange="filterMemories()">
+                            <span>全部</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="typeFilter" value="conversation" onchange="filterMemories()">
+                            <span>对话</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="typeFilter" value="fact" onchange="filterMemories()">
+                            <span>事实</span>
+                        </label>
+                        <label class="filter-option">
+                            <input type="radio" name="typeFilter" value="note" onchange="filterMemories()">
+                            <span>笔记</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="tags-section">
+                    <h3>标签</h3>
+                    <div class="tags-list" id="tagsList">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+
+                <div class="actions-section">
+                    <button class="btn-add-memory" onclick="showAddMemoryModal()">
+                        + 添加记忆
+                    </button>
+                    <button class="btn-export" onclick="exportMemories()">
+                        📤 导出 JSON
+                    </button>
+                    <button class="btn-export-obsidian" onclick="exportToObsidian()">
+                        📝 导出 Obsidian
+                    </button>
+                </div>
+            </div>
+
+            <!-- 右侧记忆列表 -->
+            <div class="memory-content">
+                <div class="content-header">
+                    <div class="sort-options">
+                        <label>排序:</label>
+                        <select id="sortOrder" onchange="loadMemories()">
+                            <option value="importance">重要性</option>
+                            <option value="created_at">时间（最新）</option>
+                        </select>
+                    </div>
+                    <div class="memory-stats" id="memoryStats">
+                        共 0 条记忆
+                    </div>
+                </div>
+
+                <div class="memory-list" id="memoryList">
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加/编辑记忆模态框 -->
+    <div class="memory-modal" id="memoryModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="memoryModalTitle">添加记忆</h3>
+                <button class="close-modal" onclick="closeMemoryModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="memoryForm">
+                    <input type="hidden" id="editMemoryId">
+                    <div class="form-group">
+                        <label>标题</label>
+                        <input type="text" id="memoryTitle" placeholder="简短描述...">
+                    </div>
+                    <div class="form-group">
+                        <label>类型</label>
+                        <select id="memoryType">
+                            <option value="note">笔记</option>
+                            <option value="fact">事实</option>
+                            <option value="conversation">对话</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>内容 *</label>
+                        <textarea id="memoryContent" class="content-textarea"
+                                  placeholder="记忆内容..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>标签（用逗号分隔）</label>
+                        <input type="text" id="memoryTags" placeholder="例如：重要, 工作, 学习">
+                    </div>
+                    <div class="form-group">
+                        <label>重要性</label>
+                        <div class="importance-slider">
+                            <input type="range" id="memoryImportance" min="1" max="5" value="3">
+                            <span id="importanceValue">3</span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" onclick="closeMemoryModal()">取消</button>
+                <button class="btn-save" onclick="saveMemory()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 查看记忆详情模态框 -->
+    <div class="memory-modal" id="viewMemoryModal" style="display: none;">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3 id="viewMemoryTitle">记忆详情</h3>
+                <button class="close-modal" onclick="closeViewMemoryModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="view-memory-meta">
+                    <span class="view-memory-type" id="viewMemoryType">笔记</span>
+                    <span class="view-memory-time" id="viewMemoryTime"></span>
+                    <span class="view-memory-importance" id="viewMemoryImportance"></span>
+                </div>
+                <div class="view-memory-tags" id="viewMemoryTags"></div>
+                <div class="view-memory-content" id="viewMemoryContent"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-edit" onclick="editViewedMemory()">编辑</button>
+                <button class="btn-delete" onclick="deleteViewedMemory()">删除</button>
+                <button class="btn-close" onclick="closeViewMemoryModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/memory.js') }}"></script>
+</body>
+</html>

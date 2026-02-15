@@ -39,7 +39,19 @@
       "Bash(bash:*)",
       "Bash(ls:*)",
       "Bash(node --check:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(PUSH_VERIFICATION.md << 'EOF'\n# 推送验证\n\n## 最近推送的提交\n\n本文件创建于 2026-02-13 13:40，用于验证代码已成功推送到GitHub。\n\n### 最近10次提交\n\n```\ncf68659 清理测试文件\n5da6f1f 添加waiting_user_input事件处理\nbb7b5a6 添加auto-approve功能文档\n82f481b 添加auto_approve测试文件\n29ed5f7 添加auto_approve自动批准模式\n7b4569c 测试agentic loop功能\nd3dc50c 修复缩进错误\n6ea8d63 实现完整的agentic loop支持多轮工具调用\n04b97f7 更新Claude设置\n12a0a6b 修复工具调用链中断问题，支持多轮工具调用\n```\n\n### 修改的文件\n\n- `app.py` - 实现agentic loop和auto_approve\n- `static/js/script.js` - 前端auto_approve和waiting_user_input处理\n- `static/css/style.css` - 样式更新\n- `templates/index.html` - 添加auto_approve开关\n- `AUTO_APPROVE_FEATURE.md` - 功能文档\n\n### 远程仓库信息\n\n- 仓库: git@github.com:sunboygavin/claude-web.git\n- 分支: main\n- 最新提交: cf68659bf07eea95e582840e1cd9588fc01029cd\n\n如果你在GitHub上看到这个文件，说明推送成功！\nEOF)",
+      "Bash(do if curl -s \"https://api.github.com/repos/sunboygavin/claude-web/contents/$file\")",
+      "Bash(then echo \"✅ $file\" else echo \"❌ $file\" fi done)",
+      "Bash(systemctl status:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(netstat:*)",
+      "Bash(ss:*)",
+      "Bash(env:*)",
+      "Bash(iconv:*)",
+      "Bash(pgrep:*)",
+      "Bash(grep:*)"
     ]
   }
 }

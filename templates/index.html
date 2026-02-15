@@ -93,6 +93,9 @@
                             <option value="sonnet">Sonnet 4.5</option>
                             <option value="opus">Opus 4.6</option>
                             <option value="haiku">Haiku 3.5</option>
+                            <option value="doubao">豆包</option>
+                            <option value="kimi">Kimi</option>
+                            <option value="zhipu">智谱AI</option>
                         </select>
                         <label class="auto-approve-toggle" title="自动批准工具调用（危险操作仍需确认）">
                             <input type="checkbox" id="autoApproveToggle">
@@ -104,6 +107,9 @@
                         <button id="clearHistoryBtn" class="action-btn" title="清除历史">🗑️</button>
                         <button id="exportBtn" class="action-btn" title="导出对话">💾</button>
                         <p class="model-info">Model: Claude Sonnet 4.5</p>
+                        <a href="/memory-config" class="memory-config-btn">🧠 记忆</a>
+                        <a href="/skills-config" class="skills-config-btn">Skills 管理</a>
+                        <a href="/mcp-config" class="mcp-config-btn">MCP 配置</a>
                         <a href="/logout" class="logout-btn">退出</a>
                     </div>
                 </div>
@@ -138,15 +144,12 @@
             <div class="sandbox-header">
                 <h3>代码沙盒</h3>
                 <div style="display: flex; gap: 8px; align-items: center;">
-                    <button onclick="window.open('http://localhost:5678', '_blank')"
-                            style="padding: 3px 10px; background: #667eea; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 10px; font-weight: 600;">
-                        n8n
-                    </button>
                     <button id="toggleSandbox" class="toggle-btn">▶</button>
                 </div>
             </div>
             <div class="sandbox-tabs">
                 <button class="sandbox-tab active" data-tab="terminal">终端</button>
+                <button class="sandbox-tab" data-tab="n8n">n8n</button>
             </div>
             <div class="sandbox-content">
                 <div class="sandbox-tab-content active" id="terminalTab">
@@ -161,6 +164,11 @@
                             </div>
                         </div>
                         <div id="xterm-container" class="xterm-container"></div>
+                    </div>
+                </div>
+                <div class="sandbox-tab-content" id="n8nTab">
+                    <div class="n8n-container">
+                        <iframe id="n8nIframe" src="/n8n/" class="n8n-iframe"></iframe>
                     </div>
                 </div>
             </div>

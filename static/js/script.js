@@ -214,7 +214,10 @@ function updateModelDisplay() {
     const modelNames = {
         'sonnet': 'Claude Sonnet 4.5',
         'opus': 'Claude Opus 4.6',
-        'haiku': 'Claude Haiku 3.5'
+        'haiku': 'Claude Haiku 3.5',
+        'doubao': '豆包大模型',
+        'kimi': 'Kimi',
+        'zhipu': '智谱AI'
     };
 
     const modelInfo = document.querySelector('.model-info');

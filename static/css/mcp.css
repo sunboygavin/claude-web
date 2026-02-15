@@ -1,0 +1,607 @@
+/* MCP 配置页面样式 */
+
+.mcp-layout {
+    width: 100%;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    background: #f5f5f5;
+}
+
+.mcp-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.mcp-header h1 {
+    font-size: 18px;
+    margin: 0;
+}
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.btn-back {
+    padding: 6px 16px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 13px;
+    transition: background 0.2s;
+}
+
+.btn-back:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.btn-skills {
+    padding: 6px 16px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 13px;
+    transition: background 0.2s;
+}
+
+.btn-skills:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.btn-memory {
+    padding: 6px 16px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    font-size: 13px;
+    transition: background 0.2s;
+}
+
+.btn-memory:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.mcp-main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+.mcp-sidebar {
+    width: 280px;
+    background: white;
+    border-right: 1px solid #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.sidebar-header {
+    padding: 15px;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sidebar-header h2 {
+    font-size: 14px;
+    margin: 0;
+    color: #333;
+}
+
+.btn-add {
+    padding: 6px 12px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.2s;
+}
+
+.btn-add:hover {
+    background: #5568d3;
+}
+
+.server-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.server-item {
+    padding: 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.server-item:hover {
+    border-color: #667eea;
+    background: #f8f9ff;
+}
+
+.server-item.active {
+    border-color: #667eea;
+    background: #f0f3ff;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+.server-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.server-item-name {
+    font-weight: 600;
+    color: #333;
+    font-size: 13px;
+}
+
+.server-item-type {
+    font-size: 10px;
+    padding: 2px 8px;
+    background: #f0f0f0;
+    border-radius: 10px;
+    color: #666;
+}
+
+.server-item-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.status-dot.connected {
+    background: #4caf50;
+}
+
+.status-dot.error {
+    background: #f44336;
+}
+
+.status-dot.disconnected {
+    background: #9e9e9e;
+}
+
+.status-dot.unknown {
+    background: #ff9800;
+}
+
+.mcp-content {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    min-width: 0;
+}
+
+.mcp-welcome {
+    text-align: center;
+    padding: 60px 20px;
+    color: #666;
+}
+
+.mcp-welcome h2 {
+    font-size: 24px;
+    margin-bottom: 12px;
+    color: #333;
+}
+
+.preset-servers {
+    margin-top: 40px;
+}
+
+.preset-servers h3 {
+    font-size: 14px;
+    margin-bottom: 16px;
+    color: #666;
+}
+
+.preset-buttons {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.preset-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 24px 32px;
+    background: white;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.preset-btn:hover {
+    border-color: #667eea;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+}
+
+.preset-icon {
+    font-size: 32px;
+}
+
+.preset-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.mcp-detail {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.detail-header h3 {
+    margin: 0;
+    color: #333;
+    font-size: 18px;
+}
+
+.detail-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-test, .btn-restart, .btn-edit, .btn-delete {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn-test {
+    background: #4caf50;
+    color: white;
+}
+
+.btn-test:hover {
+    background: #45a049;
+}
+
+.btn-restart {
+    background: #2196f3;
+    color: white;
+}
+
+.btn-restart:hover {
+    background: #1976d2;
+}
+
+.btn-edit {
+    background: #ff9800;
+    color: white;
+}
+
+.btn-edit:hover {
+    background: #f57c00;
+}
+
+.btn-delete {
+    background: #f44336;
+    color: white;
+}
+
+.btn-delete:hover {
+    background: #da190b;
+}
+
+.detail-status {
+    margin-bottom: 20px;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-badge.connected {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.status-badge.error {
+    background: #ffebee;
+    color: #c62828;
+}
+
+.status-badge.disconnected {
+    background: #f5f5f5;
+    color: #616161;
+}
+
+.status-badge.unknown {
+    background: #fff3e0;
+    color: #ef6c00;
+}
+
+.detail-info {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.info-section h4 {
+    font-size: 14px;
+    color: #333;
+    margin-bottom: 12px;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 16px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.info-item label {
+    font-size: 11px;
+    color: #999;
+    text-transform: uppercase;
+}
+
+.info-item span {
+    font-size: 13px;
+    color: #333;
+    word-break: break-all;
+}
+
+.tools-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.tool-item {
+    padding: 10px 12px;
+    background: #f5f5f5;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #333;
+}
+
+.error-box {
+    padding: 12px;
+    background: #ffebee;
+    border: 1px solid #ffcdd2;
+    border-radius: 6px;
+    color: #c62828;
+    font-size: 13px;
+    white-space: pre-wrap;
+}
+
+/* 模态框样式 */
+
+.mcp-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.mcp-modal .modal-content {
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 550px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.mcp-modal .modal-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.mcp-modal .modal-header h3 {
+    margin: 0;
+    color: #667eea;
+    font-size: 18px;
+}
+
+.mcp-modal .close-modal {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #999;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+
+.mcp-modal .close-modal:hover {
+    background: #f0f0f0;
+    color: #333;
+}
+
+.mcp-modal .modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.mcp-modal .modal-footer {
+    padding: 16px 20px;
+    border-top: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 6px;
+}
+
+.form-group input[type="text"],
+.form-group input[type="password"],
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 13px;
+    transition: border-color 0.2s;
+    font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #667eea;
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.checkbox-label span {
+    font-size: 13px;
+    color: #333;
+}
+
+.btn-cancel, .btn-save {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-cancel {
+    background: #f0f0f0;
+    color: #666;
+}
+
+.btn-cancel:hover {
+    background: #e0e0e0;
+}
+
+.btn-save {
+    background: #667eea;
+    color: white;
+}
+
+.btn-save:hover {
+    background: #5568d3;
+}
+
+/* 加载和错误状态 */
+
+.loading {
+    text-align: center;
+    padding: 40px;
+    color: #667eea;
+    font-size: 14px;
+}
+
+.error {
+    text-align: center;
+    padding: 20px;
+    color: #d32f2f;
+    background: #ffebee;
+    border-radius: 8px;
+}
+
+.no-servers {
+    text-align: center;
+    padding: 40px 20px;
+    color: #999;
+    font-size: 14px;
+}

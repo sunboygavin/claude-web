@@ -295,6 +295,48 @@ body {
     background: rgba(255, 255, 255, 0.3);
 }
 
+.mcp-config-btn {
+    color: white;
+    text-decoration: none;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    font-size: 11px;
+    transition: background 0.2s;
+}
+
+.mcp-config-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.skills-config-btn {
+    color: white;
+    text-decoration: none;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    font-size: 11px;
+    transition: background 0.2s;
+}
+
+.skills-config-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.memory-config-btn {
+    color: white;
+    text-decoration: none;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    font-size: 11px;
+    transition: background 0.2s;
+}
+
+.memory-config-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
 .chat-container {
     flex: 1;
     overflow-y: auto;
@@ -1382,5 +1424,21 @@ body {
 
 .xterm-viewport {
     overflow-y: auto !important;
+}
+
+/* n8n 样式 */
+.n8n-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    background: #1a1a2e;
+}
+
+.n8n-iframe {
+    flex: 1;
+    width: 100%;
+    border: none;
+    background: white;
 }
 
