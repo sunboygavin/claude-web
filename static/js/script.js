@@ -2,6 +2,9 @@ let conversationHistory = [];
 let isProcessing = false;
 let currentFilePath = null;
 let currentModel = 'sonnet';
+let currentTheme = 'light';
+let currentTemplateCategory = 'all';
+let lastUserMessage = '';
 
 const chatContainer = document.getElementById('chatContainer');
 const messageInput = document.getElementById('messageInput');
@@ -13,11 +16,100 @@ const chatSection = document.getElementById('chatSection');
 const codeEditor = document.getElementById('codeEditor');
 const currentFilePathSpan = document.getElementById('currentFilePath');
 
+// 提示词模板
+const promptTemplates = [
+    {
+        id: 1,
+        category: 'code',
+        title: '代码审查',
+        description: '审查代码质量、找出潜在问题、提供改进建议',
+        content: '请帮我审查以下代码，重点关注：\n1. 代码质量和最佳实践\n2. 潜在的 bug 和安全问题\n3. 性能优化建议\n4. 可读性改进\n\n代码：\n'
+    },
+    {
+        id: 2,
+        category: 'code',
+        title: '代码解释',
+        description: '详细解释代码的工作原理',
+        content: '请详细解释这段代码的工作原理，包括：\n1. 整体架构和设计思路\n2. 关键函数的作用\n3. 数据流转过程\n4. 注意事项\n\n代码：\n'
+    },
+    {
+        id: 3,
+        category: 'code',
+        title: '重构建议',
+        description: '提供代码重构的建议和方案',
+        content: '请帮我分析这段代码并提供重构建议：\n1. 设计模式应用\n2. 代码结构优化\n3. 可维护性改进\n4. 重构后的代码示例\n\n代码：\n'
+    },
+    {
+        id: 4,
+        category: 'code',
+        title: '单元测试生成',
+        description: '为代码生成单元测试',
+        content: '请为以下代码生成完整的单元测试：\n1. 正常情况测试\n2. 边界条件测试\n3. 异常情况测试\n4. 测试覆盖率说明\n\n代码：\n'
+    },
+    {
+        id: 5,
+        category: 'writing',
+        title: '文章润色',
+        description: '润色和改进文章内容',
+        content: '请帮我润色以下文章，要求：\n1. 语法和用词优化\n2. 逻辑结构改进\n3. 表达更清晰流畅\n4. 保持原意不变\n\n文章：\n'
+    },
+    {
+        id: 6,
+        category: 'writing',
+        title: '翻译',
+        description: '中英文互译',
+        content: '请将以下内容翻译成{目标语言}：\n1. 保持专业术语准确\n2. 符合目标语言表达习惯\n3. 保持原文风格\n\n内容：\n'
+    },
+    {
+        id: 7,
+        category: 'writing',
+        title: '摘要生成',
+        description: '为长文本生成摘要',
+        content: '请为以下内容生成一个简洁的摘要：\n1. 提取核心要点\n2. 保持关键信息\n3. 字数控制在200字以内\n\n内容：\n'
+    },
+    {
+        id: 8,
+        category: 'analysis',
+        title: '数据分析',
+        description: '分析数据并提供见解',
+        content: '请帮我分析以下数据：\n1. 数据趋势分析\n2. 关键发现\n3. 可视化建议\n4. 行动建议\n\n数据：\n'
+    },
+    {
+        id: 9,
+        category: 'analysis',
+        title: 'SWOT分析',
+        description: '进行SWOT分析',
+        content: '请帮我进行SWOT分析：\n1. 优势（Strengths）\n2. 劣势（Weaknesses）\n3. 机会（Opportunities）\n4. 威胁（Threats）\n\n分析对象：\n'
+    },
+    {
+        id: 10,
+        category: 'creative',
+        title: '头脑风暴',
+        description: '进行创意头脑风暴',
+        content: '请围绕以下主题进行头脑风暴：\n1. 至少10个创意想法\n2. 多角度思考\n3. 结合最新趋势\n4. 可落地的建议\n\n主题：\n'
+    },
+    {
+        id: 11,
+        category: 'creative',
+        title: '故事创作',
+        description: '创作故事或小说',
+        content: '请帮我创作一个故事，要求：\n1. 引人入胜的开头\n2. 清晰的人物设定\n3. 紧凑的情节发展\n4. 有意义的结尾\n\n主题/背景：\n'
+    },
+    {
+        id: 12,
+        category: 'creative',
+        title: '广告词',
+        description: '创作营销文案',
+        content: '请为以下产品/服务创作广告词：\n1. 吸引人的标题\n2. 核心卖点突出\n3. 行动号召\n4. 不同版本备选\n\n产品/服务：\n'
+    }
+];
+
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
     loadFileTree('/root/claude-web');
     loadCurrentModel();
     loadHistoryFromDB();
+    initTheme();
 
     // 侧边栏切换（默认收起）
     sidebar.classList.add('collapsed');
@@ -56,6 +148,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 模型选择
     document.getElementById('modelSelector').addEventListener('change', changeModel);
+
+    // 主题切换
+    document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+
+    // 提示词模板
+    document.getElementById('templateBtn').addEventListener('click', openTemplateModal);
 
     // 沙盒面板功能
     initSandbox();
@@ -562,6 +660,27 @@ async function sendMessage() {
             }
         }
 
+        // 添加时间显示
+        const timeDiv = document.createElement('div');
+        timeDiv.className = 'message-time';
+        timeDiv.textContent = new Date().toLocaleTimeString('zh-CN');
+        messageDiv.appendChild(timeDiv);
+
+        // 添加工具栏
+        const toolbar = document.createElement('div');
+        toolbar.className = 'message-toolbar';
+        toolbar.innerHTML = `
+            <button class="message-toolbar-btn" onclick="regenerateMessage()">🔄 重新生成</button>
+            <button class="message-toolbar-btn" onclick="copyMessage(this)">📋 复制</button>
+        `;
+        messageDiv.appendChild(toolbar);
+
+        // 为代码块添加复制按钮
+        const contentDiv = messageDiv.querySelector('.message-content');
+        if (contentDiv) {
+            addCopyButtonsToCodeBlocks(contentDiv);
+        }
+
         const assistantMessage = {
             role: 'assistant',
             content: fullResponse,
@@ -658,52 +777,6 @@ function formatMarkdown(text) {
         .replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
 }
 
-// 从数据库加载历史记录
-async function loadHistoryFromDB() {
-    try {
-        const response = await fetch('/api/history?limit=50');
-        const data = await response.json();
-
-        if (response.ok && data.history && data.history.length > 0) {
-            // 清空当前显示
-            const welcomeMessage = chatContainer.querySelector('.welcome-message');
-            if (welcomeMessage) {
-                welcomeMessage.remove();
-            }
-
-            // 显示历史消息
-            data.history.forEach(msg => {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = `message ${msg.role}`;
-
-                // 如果有保存的HTML（包含工具调用），使用HTML
-                if (msg.metadata && msg.metadata.html) {
-                    messageDiv.innerHTML = msg.metadata.html;
-                } else {
-                    // 否则使用纯文本
-                    const contentDiv = document.createElement('div');
-                    contentDiv.className = 'message-content';
-                    contentDiv.textContent = msg.content;
-                    messageDiv.appendChild(contentDiv);
-                }
-
-                chatContainer.appendChild(messageDiv);
-
-                // 添加到内存中的历史记录
-                conversationHistory.push({
-                    role: msg.role,
-                    content: msg.content,
-                    html: msg.metadata?.html,
-                    toolCalls: msg.metadata?.toolCalls
-                });
-            });
-
-            scrollToBottom();
-        }
-    } catch (error) {
-        console.error('加载历史记录失败:', error);
-    }
-}
 
 // 打开搜索对话框
 function openSearchModal() {
@@ -1635,4 +1708,269 @@ function initTerminal() {
 function addTerminalLine(text, type = '') {
     // 已废弃，使用 xterm.js
 }
+
+// ========== 主题切换功能 ==========
+function initTheme() {
+    const savedTheme = localStorage.getItem('claude-theme');
+    if (savedTheme) {
+        currentTheme = savedTheme;
+        if (currentTheme === 'dark') {
+            document.body.classList.add('dark-theme');
+            document.getElementById('themeToggle').textContent = '☀️';
+        }
+    }
+}
+
+function toggleTheme() {
+    currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+    document.body.classList.toggle('dark-theme');
+    const themeBtn = document.getElementById('themeToggle');
+    themeBtn.textContent = currentTheme === 'dark' ? '☀️' : '🌙';
+    localStorage.setItem('claude-theme', currentTheme);
+}
+
+// ========== 提示词模板功能 ==========
+function openTemplateModal() {
+    document.getElementById('templateModal').style.display = 'flex';
+    renderTemplates('all');
+}
+
+function closeTemplateModal() {
+    document.getElementById('templateModal').style.display = 'none';
+}
+
+function filterTemplates(category, event) {
+    currentTemplateCategory = category;
+
+    // 更新标签样式
+    document.querySelectorAll('.category-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    if (event && event.target) {
+        event.target.classList.add('active');
+    }
+
+    renderTemplates(category);
+}
+
+function renderTemplates(category) {
+    const templateList = document.getElementById('templateList');
+    const filteredTemplates = category === 'all'
+        ? promptTemplates
+        : promptTemplates.filter(t => t.category === category);
+
+    templateList.innerHTML = '';
+    const fragment = document.createDocumentFragment();
+
+    filteredTemplates.forEach(template => {
+        const templateItem = document.createElement('div');
+        templateItem.className = 'template-item';
+        templateItem.onclick = () => useTemplate(template);
+
+        const categoryLabels = {
+            'code': '💻 代码',
+            'writing': '✍️ 写作',
+            'analysis': '📊 分析',
+            'creative': '🎨 创意'
+        };
+
+        templateItem.innerHTML = `
+            <div class="template-header">
+                <span class="template-title">${template.title}</span>
+                <span class="template-category">${categoryLabels[template.category]}</span>
+            </div>
+            <div class="template-description">${template.description}</div>
+        `;
+
+        fragment.appendChild(templateItem);
+    });
+
+    templateList.appendChild(fragment);
+}
+
+function useTemplate(template) {
+    closeTemplateModal();
+    messageInput.value = template.content;
+    messageInput.focus();
+    messageInput.style.height = 'auto';
+    messageInput.style.height = Math.min(messageInput.scrollHeight, 150) + 'px';
+}
+
+// ========== 消息增强功能（时间、重新生成、复制代码） ==========
+// 保存最后一条用户消息用于重新生成
+const originalAddMessage = addMessage;
+addMessage = function(role, content) {
+    if (role === 'user') {
+        lastUserMessage = content;
+    }
+
+    const contentDiv = originalAddMessage(role, content);
+    const messageDiv = contentDiv.parentElement;
+
+    // 添加时间显示
+    const timeDiv = document.createElement('div');
+    timeDiv.className = 'message-time';
+    timeDiv.textContent = new Date().toLocaleTimeString('zh-CN');
+    messageDiv.appendChild(timeDiv);
+
+    // 如果是助手消息，添加工具栏
+    if (role === 'assistant') {
+        const toolbar = document.createElement('div');
+        toolbar.className = 'message-toolbar';
+        toolbar.innerHTML = `
+            <button class="message-toolbar-btn" onclick="regenerateMessage()">🔄 重新生成</button>
+            <button class="message-toolbar-btn" onclick="copyMessage(this)">📋 复制</button>
+        `;
+        messageDiv.appendChild(toolbar);
+
+        // 为代码块添加复制按钮
+        addCopyButtonsToCodeBlocks(contentDiv);
+    }
+
+    return contentDiv;
+};
+
+// 为代码块添加复制按钮
+function addCopyButtonsToCodeBlocks(contentDiv) {
+    const codeBlocks = contentDiv.querySelectorAll('pre');
+    codeBlocks.forEach(block => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'code-block-wrapper';
+        block.parentNode.insertBefore(wrapper, block);
+        wrapper.appendChild(block);
+
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'copy-btn';
+        copyBtn.textContent = '复制';
+        copyBtn.onclick = (e) => {
+            e.stopPropagation();
+            copyCodeBlock(block, copyBtn);
+        };
+        wrapper.appendChild(copyBtn);
+    });
+}
+
+// 复制代码块
+function copyCodeBlock(block, button) {
+    const code = block.textContent;
+    navigator.clipboard.writeText(code).then(() => {
+        button.textContent = '已复制';
+        button.classList.add('copied');
+        setTimeout(() => {
+            button.textContent = '复制';
+            button.classList.remove('copied');
+        }, 2000);
+    }).catch(err => {
+        console.error('复制失败:', err);
+    });
+}
+
+// 重新生成消息
+function regenerateMessage() {
+    if (isProcessing || !lastUserMessage) {
+        return;
+    }
+
+    // 移除最后一条助手消息
+    const messages = chatContainer.querySelectorAll('.message.assistant');
+    if (messages.length > 0) {
+        messages[messages.length - 1].remove();
+        conversationHistory.pop();
+    }
+
+    // 重新发送
+    messageInput.value = lastUserMessage;
+    sendMessage();
+}
+
+// 复制消息内容
+function copyMessage(button) {
+    const messageDiv = button.closest('.message');
+    const contentDiv = messageDiv.querySelector('.message-content');
+    const content = contentDiv.textContent;
+
+    navigator.clipboard.writeText(content).then(() => {
+        button.textContent = '已复制';
+        setTimeout(() => {
+            button.textContent = '📋 复制';
+        }, 2000);
+    }).catch(err => {
+        console.error('复制失败:', err);
+    });
+}
+
+// ========== 加载历史消息时也增强显示 ==========
+const originalLoadHistoryFromDB = loadHistoryFromDB;
+loadHistoryFromDB = async function() {
+    try {
+        const response = await fetch('/api/history?limit=50');
+        const data = await response.json();
+
+        if (response.ok && data.history && data.history.length > 0) {
+            const welcomeMessage = chatContainer.querySelector('.welcome-message');
+            if (welcomeMessage) {
+                welcomeMessage.remove();
+            }
+
+            data.history.forEach(msg => {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${msg.role}`;
+
+                if (msg.metadata && msg.metadata.html) {
+                    messageDiv.innerHTML = msg.metadata.html;
+                } else {
+                    const contentDiv = document.createElement('div');
+                    contentDiv.className = 'message-content';
+                    contentDiv.textContent = msg.content;
+                    messageDiv.appendChild(contentDiv);
+                }
+
+                // 添加时间显示
+                const timeDiv = document.createElement('div');
+                timeDiv.className = 'message-time';
+                if (msg.timestamp) {
+                    timeDiv.textContent = new Date(msg.timestamp).toLocaleString('zh-CN');
+                }
+                messageDiv.appendChild(timeDiv);
+
+                // 如果是助手消息且没有工具栏，添加工具栏
+                if (msg.role === 'assistant') {
+                    const existingToolbar = messageDiv.querySelector('.message-toolbar');
+                    if (!existingToolbar) {
+                        const toolbar = document.createElement('div');
+                        toolbar.className = 'message-toolbar';
+                        toolbar.innerHTML = `
+                            <button class="message-toolbar-btn" onclick="copyMessage(this)">📋 复制</button>
+                        `;
+                        messageDiv.appendChild(toolbar);
+                    }
+
+                    // 为代码块添加复制按钮
+                    const contentDiv = messageDiv.querySelector('.message-content');
+                    if (contentDiv) {
+                        addCopyButtonsToCodeBlocks(contentDiv);
+                    }
+                }
+
+                chatContainer.appendChild(messageDiv);
+
+                conversationHistory.push({
+                    role: msg.role,
+                    content: msg.content,
+                    html: msg.metadata?.html,
+                    toolCalls: msg.metadata?.toolCalls
+                });
+
+                // 保存最后一条用户消息
+                if (msg.role === 'user') {
+                    lastUserMessage = msg.content;
+                }
+            });
+
+            scrollToBottom();
+        }
+    } catch (error) {
+        console.error('加载历史记录失败:', error);
+    }
+};
 

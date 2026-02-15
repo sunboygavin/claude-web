@@ -86,6 +86,26 @@
                     </div>
                 </div>
 
+                <!-- 提示词模板对话框 -->
+                <div class="template-modal" id="templateModal" style="display: none;">
+                    <div class="modal-content template-content">
+                        <div class="modal-header">
+                            <h3>📑 提示词模板</h3>
+                            <button class="close-modal" onclick="closeTemplateModal()">✕</button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="template-categories">
+                                <button class="category-btn active" data-category="all" onclick="filterTemplates('all', event)">全部</button>
+                                <button class="category-btn" data-category="code" onclick="filterTemplates('code', event)">💻 代码</button>
+                                <button class="category-btn" data-category="writing" onclick="filterTemplates('writing', event)">✍️ 写作</button>
+                                <button class="category-btn" data-category="analysis" onclick="filterTemplates('analysis', event)">📊 分析</button>
+                                <button class="category-btn" data-category="creative" onclick="filterTemplates('creative', event)">🎨 创意</button>
+                            </div>
+                            <div id="templateList" class="template-list"></div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="header">
                     <h1>Claude 网页版</h1>
                     <div class="header-actions">
@@ -97,6 +117,8 @@
                             <option value="kimi">Kimi</option>
                             <option value="zhipu">智谱AI</option>
                         </select>
+                        <button id="themeToggle" class="action-btn" title="切换主题">🌙</button>
+                        <button id="templateBtn" class="action-btn" title="提示词模板">📑</button>
                         <label class="auto-approve-toggle" title="自动批准工具调用（危险操作仍需确认）">
                             <input type="checkbox" id="autoApproveToggle">
                             <span>自动批准</span>

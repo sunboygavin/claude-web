@@ -4,31 +4,61 @@
     box-sizing: border-box;
 }
 
+:root {
+    --bg-primary: #f5f5f5;
+    --bg-secondary: white;
+    --bg-tertiary: #2c3e50;
+    --bg-header: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --text-primary: #333;
+    --text-secondary: #666;
+    --text-inverse: white;
+    --border-color: #e0e0e0;
+    --shadow-color: rgba(0, 0, 0, 0.1);
+    --message-bg-user: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --message-bg-assistant: white;
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
-    background: #f5f5f5;
+    background: var(--bg-primary);
     height: 100vh;
     margin: 0;
     padding: 0;
     overflow: hidden;
+    transition: background 0.3s ease, color 0.3s ease;
+}
+
+body.dark-theme {
+    --bg-primary: #0f0f0f;
+    --bg-secondary: #1a1a1a;
+    --bg-tertiary: #1a1a2e;
+    --bg-header: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    --text-primary: #e0e0e0;
+    --text-secondary: #999;
+    --text-inverse: white;
+    --border-color: #333;
+    --shadow-color: rgba(0, 0, 0, 0.3);
+    --message-bg-user: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+    --message-bg-assistant: #2d2d2d;
 }
 
 .main-layout {
     width: 100%;
     height: 100vh;
-    background: white;
+    background: var(--bg-secondary);
     display: flex;
     overflow: hidden;
+    transition: background 0.3s ease;
 }
 
 /* 侧边栏样式 */
 .sidebar {
     width: 200px;
-    background: #2c3e50;
-    color: white;
+    background: var(--bg-tertiary);
+    color: var(--text-inverse);
     display: flex;
     flex-direction: column;
-    transition: width 0.3s;
+    transition: width 0.3s, background 0.3s ease;
 }
 
 .sidebar.collapsed {
@@ -43,7 +73,7 @@ body {
 
 .sidebar-header {
     padding: 8px 12px;
-    background: #34495e;
+    background: rgba(255, 255, 255, 0.1);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -191,12 +221,13 @@ body {
 }
 
 .header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: var(--bg-header);
+    color: var(--text-inverse);
     padding: 8px 12px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    transition: background 0.3s ease;
 }
 
 .header h1 {
@@ -342,29 +373,33 @@ body {
     overflow-y: auto;
     overflow-x: hidden;
     padding: 12px;
-    background: #f5f5f5;
+    background: var(--bg-primary);
     scroll-behavior: smooth;
     min-height: 0;
+    transition: background 0.3s ease;
 }
 
 .welcome-message {
     text-align: center;
     padding: 20px 12px;
-    color: #666;
+    color: var(--text-secondary);
+    transition: color 0.3s ease;
 }
 
 .welcome-message h2 {
     font-size: 16px;
     margin-bottom: 8px;
-    color: #333;
+    color: var(--text-primary);
+    transition: color 0.3s ease;
 }
 
 .command-hint {
     margin-top: 12px;
     padding: 10px;
-    background: #f0f0f0;
+    background: var(--bg-secondary);
     border-radius: 8px;
     font-size: 11px;
+    transition: background 0.3s ease;
 }
 
 .command-hint code {
@@ -415,34 +450,42 @@ body {
 }
 
 .message.assistant .message-content {
-    background: white;
-    color: #333;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    background: var(--message-bg-assistant);
+    color: var(--text-primary);
+    box-shadow: 0 2px 5px var(--shadow-color);
+    transition: background 0.3s ease, color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .input-container {
     padding: 12px;
-    background: white;
-    border-top: 1px solid #e0e0e0;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
     display: flex;
     gap: 8px;
+    transition: background 0.3s ease, border-color 0.3s ease;
 }
 
 #messageInput {
     flex: 1;
     padding: 8px 12px;
-    border: 2px solid #e0e0e0;
+    border: 2px solid var(--border-color);
     border-radius: 20px;
     font-size: 12px;
     resize: none;
     font-family: inherit;
     outline: none;
-    transition: border-color 0.3s;
+    transition: border-color 0.3s, background 0.3s ease, color 0.3s ease;
     max-height: 120px;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
 }
 
 #messageInput:focus {
     border-color: #667eea;
+}
+
+body.dark-theme #messageInput::placeholder {
+    color: #666;
 }
 
 #sendButton {
@@ -1440,5 +1483,228 @@ body {
     width: 100%;
     border: none;
     background: white;
+}
+
+/* 代码块样式和复制按钮 */
+.code-block-wrapper {
+    position: relative;
+    margin: 10px 0;
+}
+
+.code-block-wrapper pre {
+    margin: 0;
+    padding: 12px;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    border-radius: 6px;
+    overflow-x: auto;
+}
+
+body.dark-theme .code-block-wrapper pre {
+    background: #0d0d0d;
+}
+
+.copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 4px 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    border-radius: 4px;
+    font-size: 10px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s, background 0.2s;
+}
+
+.code-block-wrapper:hover .copy-btn {
+    opacity: 1;
+}
+
+.copy-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.copy-btn.copied {
+    background: #4caf50;
+    border-color: #4caf50;
+}
+
+/* 消息工具栏（重新生成等） */
+.message-toolbar {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.message.assistant:hover .message-toolbar {
+    opacity: 1;
+}
+
+.message-toolbar-btn {
+    padding: 4px 8px;
+    background: rgba(102, 126, 234, 0.1);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    color: #667eea;
+    border-radius: 4px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+body.dark-theme .message-toolbar-btn {
+    background: rgba(102, 126, 234, 0.2);
+    color: #a5b4fc;
+}
+
+.message-toolbar-btn:hover {
+    background: #667eea;
+    color: white;
+}
+
+/* 消息时间显示 */
+.message-time {
+    font-size: 10px;
+    color: #999;
+    margin-top: 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.message:hover .message-time {
+    opacity: 1;
+}
+
+/* 提示词模板模态框 */
+.template-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+}
+
+.template-content {
+    max-width: 800px;
+    width: 95%;
+    max-height: 85vh;
+}
+
+.template-categories {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.category-btn {
+    padding: 8px 16px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.category-btn:hover {
+    border-color: #667eea;
+    color: #667eea;
+}
+
+.category-btn.active {
+    background: #667eea;
+    border-color: #667eea;
+    color: white;
+}
+
+.template-list {
+    display: grid;
+    gap: 12px;
+}
+
+.template-item {
+    padding: 16px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.template-item:hover {
+    border-color: #667eea;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+}
+
+.template-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.template-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 14px;
+}
+
+.template-category {
+    padding: 2px 8px;
+    background: #667eea;
+    color: white;
+    border-radius: 10px;
+    font-size: 10px;
+}
+
+.template-description {
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+/* 深色主题模态框调整 */
+body.dark-theme .modal-content {
+    background: var(--bg-secondary);
+}
+
+body.dark-theme .modal-header {
+    border-bottom-color: var(--border-color);
+}
+
+body.dark-theme .modal-header h3 {
+    color: var(--text-primary);
+}
+
+body.dark-theme .template-item {
+    background: var(--bg-primary);
+}
+
+body.dark-theme .template-item:hover {
+    background: rgba(102, 126, 234, 0.1);
+}
+
+/* 滚动条深色主题 */
+body.dark-theme ::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+body.dark-theme ::-webkit-scrollbar-thumb {
+    background: #444;
+}
+
+body.dark-theme ::-webkit-scrollbar-thumb:hover {
+    background: #555;
 }
 
